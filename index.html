@@ -117,10 +117,12 @@
 
   /* ===== 시작 오버레이 ===== */
   #startOverlay {
-    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    background: rgba(250,251,253,.72); z-index: 20; padding: 20px;
-    backdrop-filter: blur(2px);
+    position: fixed; inset: 0; display: flex; align-items: flex-start; justify-content: center;
+    background: rgba(250,251,253,.8); z-index: 40; padding: 20px;
+    backdrop-filter: blur(3px);
+    overflow-y: auto;
   }
+  #startOverlay .start-box { margin: auto; }
   .start-box {
     background: #fff; border: 1px solid var(--border-strong); border-radius: 16px;
     padding: 24px 30px; max-width: 620px; text-align: center;
@@ -240,6 +242,7 @@
 <header>
   <h1>🌏 기후 시뮬레이션</h1>
   <div class="hud">
+    <button class="scenario-btn" style="padding:4px 12px;font-size:.72rem;" onclick="toggleMapCenter()" id="mapCenterBtn" title="지도 중심 경도 전환">🗺 태평양 중심</button>
     <button class="scenario-btn" style="padding:4px 12px;font-size:.72rem;" onclick="openSettings()">⚙️ AI 설정</button>
     <span class="chip">턴 <b id="hudTurn">0</b></span>
     <span class="chip">점수 <b id="hudScore">0</b></span>
@@ -254,7 +257,7 @@
     <div class="panel" id="mapPanel">
       <h2><span class="icon">🗺</span> 실제 세계지도 — 태평양 중심</h2>
       <div id="mapWrap">
-        <img id="worldmap" src="worldmap.svg" alt="세계지도">
+        <img id="worldmap" src="worldmap_pacific.svg" alt="세계지도">
         <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
         <div id="clickLayer"></div>
         <div id="startOverlay">
@@ -264,6 +267,9 @@
                대기 순환이 한반도로 이어지는 길을 예측하세요.</p>
             <p class="instruction">👇 시작 지점을 선택하세요</p>
             <div class="scenario-btns" id="startBtns"></div>
+            <div id="backBtnWrap" style="display:none;margin-top:12px;">
+              <button class="scenario-btn" style="border-color:#94a3b5;color:#5b6b7f;" onclick="goBackStart()">← 뒤로가기</button>
+            </div>
             <div class="mode-tabs" id="modeTabs" style="display:none;">
               <button class="mode-tab active" data-mode="preset" onclick="setStartMode('preset')">프리셋 모드</button>
               <button class="mode-tab" data-mode="custom" onclick="setStartMode('custom')">직접입력 모드</button>
@@ -427,8 +433,32 @@ let G = null;
 let selectedDir = null;
 let lastNote = null;
 
+let mapCenter = 'pacific'; // 'pacific' | 'atlantic'
 function lonLatToXY(lon, lat) {
-  return { x: (lon + 180) * 4, y: (90 - lat) * 4 };
+  let x;
+  if (mapCenter === 'pacific') x = ((lon + 360) % 360) * 4;
+  else x = (lon + 180) * 4;
+  return { x: x, y: (90 - lat) * 4 };
+}
+function toggleMapCenter() {
+  mapCenter = mapCenter === 'pacific' ? 'atlantic' : 'pacific';
+  document.getElementById('worldmap').src = mapCenter === 'pacific' ? 'worldmap_pacific.svg' : 'worldmap_atlantic.svg';
+  document.getElementById('mapCenterBtn').textContent = mapCenter === 'pacific' ? '🗺 태평양 중심' : '🗺 대서양 중심';
+  saveMapCenter();
+  render();
+}
+function saveMapCenter() {
+  try { localStorage.setItem('climate-civ-map-center', mapCenter); } catch (e) {}
+}
+function loadMapCenter() {
+  try {
+    const v = localStorage.getItem('climate-civ-map-center');
+    if (v === 'atlantic') {
+      mapCenter = 'atlantic';
+      document.getElementById('worldmap').src = 'worldmap_atlantic.svg';
+      document.getElementById('mapCenterBtn').textContent = '🗺 대서양 중심';
+    }
+  } catch (e) {}
 }
 function tileToXY(pos) { return lonLatToXY(C.lonOf(pos.col), C.latOf(pos.row)); }
 function fmtLat(lat) { return Math.abs(lat) + '°' + (lat >= 0 ? 'N' : 'S'); }
@@ -496,6 +526,18 @@ let startMode = 'preset'; // 'preset' | 'custom'
 let chosenStart = null;
 let customVerdict = null;
 
+function goBackStart() {
+  document.getElementById('backBtnWrap').style.display = 'none';
+  document.getElementById('modeTabs').style.display = 'none';
+  document.getElementById('customObsBox').style.display = 'none';
+  const cob = document.getElementById('customObsBox');
+  const oldBtn = cob.querySelector('.btn');
+  if (oldBtn) oldBtn.remove();
+  chosenStart = null;
+  customVerdict = null;
+  buildStartButtons();
+}
+
 function buildStartButtons() {
   const box = document.getElementById('startBtns');
   box.innerHTML = '';
@@ -546,6 +588,8 @@ function chooseScenario(startKey) {
   chosenStart = startKey;
   const box = document.getElementById('startBtns');
   box.innerHTML = '';
+
+  document.getElementById('backBtnWrap').style.display = 'block';
 
   if (startKey === 'SO') {
     // 남방진동 확인 모드: 칠레 고정, 시나리오만 선택
@@ -1146,6 +1190,7 @@ document.getElementById('mapWrap').addEventListener('click', (e) => {
 buildClickDots();
 buildDirGrid();
 buildStartButtons();
+loadMapCenter();
 updateReasonCount();
 const saved = loadGame();
 if (saved) {

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 720">
+  <title>세계지도 (등장방형 투법, 대서양 중심)</title>
+  <defs>
+    <linearGradient id="ocean" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#dbeafe"/>
+      <stop offset="35%" stop-color="#cfe8f7"/>
+      <stop offset="50%" stop-color="#c7e6f5"/>
+      <stop offset="65%" stop-color="#cfe8f7"/>
+      <stop offset="100%" stop-color="#d5e9f2"/>
+    </linearGradient>
+    <linearGradient id="land" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#e8f0d8"/>
+      <stop offset="100%" stop-color="#d3e2bc"/>
+    </linearGradient>
+    <linearGradient id="landWarm" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f0ead2"/>
+      <stop offset="100%" stop-color="#e2d9b4"/>
+    </linearGradient>
+    <filter id="soft" x="-4%" y="-4%" width="108%" height="108%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#5a7a94" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+  <rect width="1440" height="720" fill="url(#ocean)"/>
+  <g stroke="#9fc3d8" stroke-width="1" opacity="0.45">
+    <line x1="0" y1="120" x2="1440" y2="120"/><line x1="0" y1="240" x2="1440" y2="240"/>
+    <line x1="0" y1="480" x2="1440" y2="480"/><line x1="0" y1="600" x2="1440" y2="600"/>
+    <line x1="120" y1="0" x2="120" y2="720"/><line x1="240" y1="0" x2="240" y2="720"/>
+    <line x1="360" y1="0" x2="360" y2="720"/><line x1="480" y1="0" x2="480" y2="720"/>
+    <line x1="600" y1="0" x2="600" y2="720"/><line x1="720" y1="0" x2="720" y2="720"/>
+    <line x1="840" y1="0" x2="840" y2="720"/><line x1="960" y1="0" x2="960" y2="720"/>
+    <line x1="1080" y1="0" x2="1080" y2="720"/><line x1="1200" y1="0" x2="1200" y2="720"/>
+    <line x1="1320" y1="0" x2="1320" y2="720"/>
+  </g>
+  <line x1="0" y1="360" x2="1440" y2="360" stroke="#d4a24e" stroke-width="1.5" stroke-dasharray="10 6" opacity="0.55"/>
+  <g filter="url(#soft)">
+    <path fill="url(#land)" stroke="#a8bf90" stroke-width="1.5" d="M 48,80 L 90,60 L 160,52 L 250,48 L 320,60 L 400,90 L 450,120              L 462,160 L 440,200 L 420,240 L 400,270 L 385,300 L 370,330              L 355,355 L 340,370 L 330,360 L 322,330 L 310,300 L 295,280              L 270,265 L 245,250 L 225,230 L 200,215 L 175,190 L 150,160              L 120,130 L 90,105 L 60,90 Z"/>
+    <path fill="url(#landWarm)" stroke="#b8b48a" stroke-width="1.5" d="M 396,312 L 420,300 L 445,292 L 465,295 L 478,310 L 482,335              L 478,360 L 470,390 L 465,420 L 460,450 L 455,480 L 450,510              L 445,540 L 438,565 L 430,585 L 422,596 L 415,590 L 410,570              L 405,540 L 400,505 L 396,470 L 393,435 L 392,400 L 393,365              L 394,340 Z"/>
+    <path fill="url(#land)" stroke="#a8bf90" stroke-width="1.5" d="M 680,80 L 760,60 L 900,52 L 1050,50 L 1200,55 L 1330,65              L 1420,90 L 1440,120 L 1435,150 L 1400,170 L 1350,185              L 1280,200 L 1220,215 L 1180,235 L 1150,255 L 1120,270              L 1090,285 L 1060,300 L 1030,315 L 1000,330 L 970,345              L 940,355 L 910,350 L 890,335 L 875,315 L 860,295              L 845,275 L 830,255 L 810,235 L 785,215 L 760,195              L 730,175 L 700,155 L 685,130 L 678,105 Z"/>
+    <path fill="url(#landWarm)" stroke="#b8b48a" stroke-width="1.5" d="M 652,330 L 680,315 L 715,310 L 750,318 L 780,335 L 800,355              L 812,380 L 815,410 L 812,440 L 805,470 L 795,500 L 782,525              L 765,545 L 748,555 L 735,545 L 725,525 L 715,498 L 708,468              L 702,438 L 698,408 L 695,380 L 690,355 Z"/>
+    <path fill="url(#landWarm)" stroke="#b8b48a" stroke-width="1.5" d="M 1172,440 L 1210,428 L 1250,425 L 1290,430 L 1320,445              L 1336,465 L 1334,490 L 1320,510 L 1295,522 L 1265,528              L 1235,524 L 1210,515 L 1192,500 L 1180,480 L 1174,460 Z"/>
+    <path fill="url(#land)" stroke="#a8bf90" stroke-width="1.2" d="M 1080,352 L 1120,348 L 1160,352 L 1200,358 L 1225,368              L 1215,380 L 1190,376 L 1160,372 L 1128,368 L 1095,364 Z"/>
+    <path fill="url(#land)" stroke="#a8bf90" stroke-width="1.2" d="M 1125,395 L 1160,392 L 1195,398 L 1190,412 L 1155,415 L 1122,408 Z"/>
+    <path fill="url(#land)" stroke="#a8bf90" stroke-width="1.2" d="M 1310,250 L 1325,245 L 1338,255 L 1332,275 L 1318,288              L 1305,280 L 1302,262 Z"/>
+    <path fill="#f2d488" stroke="#c9a227" stroke-width="1.5" d="M 1222,204 L 1234,198 L 1244,206 L 1240,222 L 1230,232              L 1220,226 L 1218,214 Z"/>
+    <path fill="url(#land)" stroke="#a8bf90" stroke-width="1.2" d="M 818,470 L 832,465 L 838,485 L 830,505 L 818,498 L 814,482 Z"/>
+    <path fill="#e3ecf2" stroke="#a8c2d0" stroke-width="1.5" d="M 190,20 L 260,15 L 300,30 L 295,70 L 270,100 L 235,112              L 205,95 L 190,60 Z"/>
+    <path fill="#e8eef2" stroke="#c0d0da" stroke-width="1.5" d="M 0,660 L 200,650 L 400,645 L 600,650 L 800,645 L 1000,650              L 1200,645 L 1440,655 L 1440,720 L 0,720 Z"/>
+  </g>
+  <g font-family="'Segoe UI', sans-serif" font-size="12" fill="#7a99ad">
+    <text x="8" y="116">60°N</text><text x="8" y="236">30°N</text>
+    <text x="8" y="356">0°</text><text x="8" y="476">30°S</text>
+    <text x="8" y="596">60°S</text>
+    <text x="1412" y="116">60°N</text><text x="1412" y="236">30°N</text>
+    <text x="1412" y="356">0°</text><text x="1412" y="476">30°S</text>
+    <text x="1412" y="596">60°S</text>
+  </g>
+  <text x="260" y="300" font-family="'Segoe UI', sans-serif" font-size="18" fill="#7ba6bd" text-anchor="middle" font-weight="bold" letter-spacing="4">P A C I F I C</text>
+  <text x="620" y="330" font-family="'Segoe UI', sans-serif" font-size="18" fill="#7ba6bd" text-anchor="middle" font-weight="bold" letter-spacing="3">A T L A N T I C</text>
+  <text x="1048" y="330" font-family="'Segoe UI', sans-serif" font-size="15" fill="#8fb8cc" text-anchor="middle">인도양</text>
+  <text x="248" y="150" font-family="'Segoe UI', sans-serif" font-size="14" fill="#6b8a5e" text-anchor="middle">북아메리카</text>
+  <text x="472" y="285" font-family="'Segoe UI', sans-serif" font-size="14" fill="#6b8a5e" text-anchor="middle">남아메리카</text>
+  <text x="1060" y="120" font-family="'Segoe UI', sans-serif" font-size="14" fill="#6b8a5e" text-anchor="middle">유라시아</text>
+  <text x="752" y="440" font-family="'Segoe UI', sans-serif" font-size="14" fill="#6b8a5e" text-anchor="middle">아프리카</text>
+  <text x="1252" y="478" font-family="'Segoe UI', sans-serif" font-size="14" fill="#6b8a5e" text-anchor="middle">오스트레일리아</text>
+  <text x="1152" y="340" font-family="'Segoe UI', sans-serif" font-size="13" fill="#6b8a5e" text-anchor="middle">인도네시아</text>
+  <text x="1228" y="194" font-family="'Segoe UI', sans-serif" font-size="13" fill="#9a7a1a" text-anchor="middle" font-weight="bold">🇰🇷 한국</text>
+</svg>
