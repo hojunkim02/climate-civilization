@@ -4,8 +4,11 @@
   // ===== 지도 격자: 실제 경·위도 기반 =====
   const GRID_ROWS = 4;
   const GRID_COLS = 6;
-  const LATS = [45, 15, -15, -45];        // row 0 = 북쪽
-  const LONS = [-150, -90, -30, 30, 90, 130]; // col 0 = 서쪽
+  // 지도 SVG의 실제 지리 위치에 맞춘 격자 좌표 (row 0 = 북쪽)
+  // LATS: 한반도(36N) / 열대(8N) / 남반구 해양(-20S) / 칠레 연안(-45S)
+  // LONS: 중태평양 / 남미 서해안 / 대서양 / 인도양 / 인도네시아(105E) / 한반도(127E)
+  const LATS = [36, 8, -18, -45];
+  const LONS = [-135, -75, -15, 45, 108, 127];
 
   const KOREA = { row: 0, col: 5 };
   const START_POINTS = {

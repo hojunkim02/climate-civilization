@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>기후 문명 — 남방진동이 한반도에 미치는 영향</title>
+<title>기후 시뮬레이션 — 남방진동이 한반도에 미치는 영향</title>
 <style>
   :root {
     --bg: #f7f8fa;
@@ -238,7 +238,7 @@
 <body>
 
 <header>
-  <h1>🌏 기후 문명 <span>Climate Civ</span></h1>
+  <h1>🌏 기후 시뮬레이션</h1>
   <div class="hud">
     <button class="scenario-btn" style="padding:4px 12px;font-size:.72rem;" onclick="openSettings()">⚙️ AI 설정</button>
     <span class="chip">턴 <b id="hudTurn">0</b></span>
@@ -358,11 +358,19 @@
 <div id="settingsModal" style="position:fixed;inset:0;background:rgba(20,28,40,.4);display:none;align-items:center;justify-content:center;z-index:70;backdrop-filter:blur(3px);">
   <div class="modal-card" style="max-width:480px;">
     <h2>⚙️ AI 평가 설정</h2>
-    <p style="font-size:.76rem;color:var(--sub);line-height:1.6;">Mistral/OpenAI 호환 API 키를 입력하면 예측 이유의 과학적 타당성을 LLM이 채점하고, 챗봇도 더 정확해집니다. 키가 없으면 오프라인 규칙 기반 평가로 동작합니다. 키는 이 브라우저에만 저장됩니다.</p>
+    <p style="font-size:.76rem;color:var(--sub);line-height:1.6;">AI 제공사를 선택하고 API 키만 입력하세요. 예측 이유의 과학적 타당성을 LLM이 채점하고, 챗봇도 더 정확해집니다. 키가 없으면 오프라인 규칙 기반 평가로 동작합니다. 키는 이 브라우저에만 저장됩니다.</p>
     <div class="settings-grid">
-      <div><label>Base URL</label><input type="text" id="setBaseUrl" placeholder="https://api.mistral.ai/v1"></div>
-      <div><label>Model</label><input type="text" id="setModel" placeholder="mistral-medium-3-5"></div>
-      <div><label>API Key</label><input type="password" id="setApiKey" placeholder="sk-..."></div>
+      <div>
+        <label>AI 제공사</label>
+        <select id="setProvider" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-strong);background:#fcfdfe;font-size:.84rem;">
+          <option value="mistral">Mistral</option>
+          <option value="chatgpt">ChatGPT (OpenAI)</option>
+          <option value="gemini">Gemini (Google)</option>
+          <option value="claude">Claude (Anthropic)</option>
+        </select>
+        <div class="hint" id="providerHint"></div>
+      </div>
+      <div><label>API Key</label><input type="password" id="setApiKey" placeholder="API 키 입력"></div>
     </div>
     <div style="display:flex;gap:8px;">
       <button class="btn primary" onclick="saveSettingsFromUI()">저장</button>
@@ -701,12 +709,14 @@ function updateReasonCount() {
   const ta = document.getElementById('inpReason');
   const n = ta.value.length;
   document.getElementById('reasonCount').textContent =
-    n + ' / 300자 · ' + (n >= 10 ? '✓ 제출 가능' : '근거 없이는 제출할 수 없습니다 (10자 이상)');
+    n + ' / 500자 · ' + (n >= 10 ? '✓ 제출 가능' : '근거 없이는 제출할 수 없습니다 (10자 이상)');
 }
 document.addEventListener('DOMContentLoaded', () => {
   const ta = document.getElementById('inpReason');
   ta.addEventListener('input', updateReasonCount);
-  ta.setAttribute('maxlength', '300');
+  ta.setAttribute('maxlength', '500');
+  const sp = document.getElementById('setProvider');
+  if (sp) sp.addEventListener('change', updateProviderHint);
 });
 
 function buildDirGrid() {
@@ -785,18 +795,23 @@ function esc(s) {
 // ===== AI 설정 =====
 function openSettings() {
   const s = window.ReasonLLM.loadSettings();
-  document.getElementById('setBaseUrl').value = s.baseUrl || '';
-  document.getElementById('setModel').value = s.model || '';
+  document.getElementById('setProvider').value = s.provider || 'mistral';
   document.getElementById('setApiKey').value = s.apiKey || '';
+  updateProviderHint();
   document.getElementById('settingsModal').style.display = 'flex';
+}
+function updateProviderHint() {
+  const key = document.getElementById('setProvider').value;
+  const p = window.ReasonLLM.PROVIDERS[key];
+  document.getElementById('providerHint').textContent =
+    p ? (p.keyHint + ' · 모델: ' + p.model) : '';
 }
 function closeSettings() {
   document.getElementById('settingsModal').style.display = 'none';
 }
 function saveSettingsFromUI() {
   const s = {
-    baseUrl: document.getElementById('setBaseUrl').value.trim() || 'https://api.mistral.ai/v1',
-    model: document.getElementById('setModel').value.trim() || 'mistral-medium-3-5',
+    provider: document.getElementById('setProvider').value,
     apiKey: document.getElementById('setApiKey').value.trim(),
   };
   window.ReasonLLM.saveSettings(s);
@@ -930,7 +945,7 @@ function downloadSave() {
 function exportWorksheet() {
   if (!G) { alert('진행 기록이 없습니다.'); return; }
   const scenLabel = C.SCENARIOS[G.scenario].label;
-  let md = `# 기후 문명 학습지 — 남방진동이 한반도에 미치는 영향\n\n`;
+  let md = `# 기후 시뮬레이션 학습지 — 남방진동이 한반도에 미치는 영향\n\n`;
   md += `| 항목 | 내용 |\n|---|---|\n`;
   md += `| 시작 지점 | ${G.startKey === 'A' ? 'A: 칠레 연안 (동태평양)' : 'B: 오스트레일리아 북동쪽 (서태평양)'} |\n`;
   md += `| 시나리오 | ${scenLabel}${G.mode === 'custom' ? ' (직접입력 모드 — 관측 판별)' : ' (프리셋 모드)'} |\n`;
@@ -987,7 +1002,7 @@ function exportWorksheet() {
   const blob = new Blob([md], { type: 'text/markdown' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = '기후문명_학습지.md';
+  a.download = '기후시뮬레이션_학습지.md';
   a.click(); URL.revokeObjectURL(a.href);
 }
 

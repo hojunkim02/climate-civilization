@@ -6,12 +6,32 @@
 
   const LS_KEYS = { settings: 'climate-civ-llm-settings' };
 
+  // 제공사 프리셋: Base URL / 기본 모델 고정, API 키만 입력
+  const PROVIDERS = {
+    chatgpt: { label: 'ChatGPT (OpenAI)', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini', keyHint: 'OpenAI 플랫폼(platform.openai.com)에서 발급' },
+    gemini: { label: 'Gemini (Google)', baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.0-flash', keyHint: 'Google AI Studio(aistudio.google.com)에서 발급' },
+    claude: { label: 'Claude (Anthropic)', baseUrl: 'https://api.anthropic.com/v1', model: 'claude-3-5-haiku-latest', keyHint: 'Anthropic Console(console.anthropic.com)에서 발급' },
+    mistral: { label: 'Mistral', baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-medium-3-5', keyHint: 'Mistral Console(console.mistral.ai)에서 발급' },
+  };
+
   function loadSettings() {
     try {
       const raw = localStorage.getItem(LS_KEYS.settings);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const s = JSON.parse(raw);
+        // 이전 버전(직접 baseUrl/model 입력) 호환: 저장된 값 유지하되 provider 없으면 추정
+        if (s && s.apiKey !== undefined) {
+          if (!PROVIDERS[s.provider]) {
+            if (s.baseUrl && s.baseUrl.includes('anthropic')) s.provider = 'claude';
+            else if (s.baseUrl && s.baseUrl.includes('generativelanguage')) s.provider = 'gemini';
+            else if (s.baseUrl && s.baseUrl.includes('mistral')) s.provider = 'mistral';
+            else s.provider = 'chatgpt';
+          }
+          return s;
+        }
+      }
     } catch (e) {}
-    return { provider: 'mistral', apiKey: '', baseUrl: 'https://api.mistral.ai/v1', model: 'mistral-medium-3-5' };
+    return { provider: 'mistral', apiKey: '' };
   }
   function saveSettings(s) {
     try { localStorage.setItem(LS_KEYS.settings, JSON.stringify(s)); } catch (e) {}
@@ -19,20 +39,28 @@
 
   function isConfigured() {
     const s = loadSettings();
-    return !!(s.apiKey && s.baseUrl && s.model);
+    return !!(s.apiKey && s.provider && PROVIDERS[s.provider]);
   }
 
   async function chat(messages, maxTokens) {
     const s = loadSettings();
     if (!s.apiKey) throw new Error('API 키가 설정되지 않았습니다');
-    const res = await fetch(s.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+    const p = PROVIDERS[s.provider] || PROVIDERS.mistral;
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + s.apiKey,
+    };
+    // Anthropic은 자체 헤더 사용 + OpenAI 호환 엔드포인트 유지
+    if (s.provider === 'claude') {
+      headers['x-api-key'] = s.apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+      delete headers['Authorization'];
+    }
+    const res = await fetch(p.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + s.apiKey,
-      },
+      headers: headers,
       body: JSON.stringify({
-        model: s.model,
+        model: s.model || p.model,
         messages: messages,
         max_tokens: maxTokens || 500,
         temperature: 0.4,
@@ -157,6 +185,7 @@
   }
 
   global.ReasonLLM = {
+    PROVIDERS: PROVIDERS,
     loadSettings: loadSettings,
     saveSettings: saveSettings,
     isConfigured: isConfigured,

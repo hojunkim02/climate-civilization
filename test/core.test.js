@@ -3,9 +3,9 @@ const assert = require('assert');
 const C = require('../core.js');
 
 // --- 좌표 헬퍼 ---
-assert.strictEqual(C.latOf(0), 45);
+assert.strictEqual(C.latOf(0), 36);
 assert.strictEqual(C.latOf(3), -45);
-assert.strictEqual(C.lonOf(5), 130);
+assert.strictEqual(C.lonOf(5), 127);
 assert.deepStrictEqual(C.KOREA, { row: 0, col: 5 });
 
 // --- 라우트 존재 확인: 시작 2종 × 시나리오 2종 ---
