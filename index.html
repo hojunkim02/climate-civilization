@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>기후 문명 — 남방진동이 한반도에 미치는 영향</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
+    background: #1a2634;
+    background-image: radial-gradient(circle at 20% 30%, rgba(40,80,120,.35), transparent 60%),
+                      radial-gradient(circle at 80% 20%, rgba(90,140,90,.18), transparent 55%);
+    background-attachment: fixed;
+    color: #e8eef4;
+    min-height: 100vh;
+  }
+  header {
+    background: rgba(10,20,30,.75);
+    border-bottom: 2px solid #3b5a7a;
+    padding: 14px 24px;
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 20;
+    backdrop-filter: blur(4px);
+  }
+  header h1 { font-size: 1.25rem; letter-spacing: 1px; }
+  header h1 span { color: #7fc8ff; }
+  .hud { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+  .hud .stat {
+    background: rgba(0,0,0,.35); border: 1px solid #3b5a7a;
+    border-radius: 8px; padding: 6px 14px; text-align: center; min-width: 84px;
+  }
+  .hud .stat .label { font-size: .72rem; color: #9fb8cc; }
+  .hud .stat .value { font-size: 1.15rem; font-weight: bold; color: #ffd97a; }
+  .badges { display: flex; gap: 6px; }
+  .badge {
+    background: linear-gradient(135deg, #b8860b, #ffd700);
+    color: #241a00; font-size: .72rem; font-weight: bold;
+    border-radius: 12px; padding: 3px 10px; box-shadow: 0 0 8px rgba(255,215,0,.4);
+  }
+  main { display: grid; grid-template-columns: 1fr 360px; gap: 16px; padding: 16px 24px; max-width: 1280px; margin: 0 auto; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: rgba(16,28,42,.92);
+    border: 1px solid #34506b; border-radius: 12px;
+    padding: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.35);
+  }
+  .panel h2 { font-size: .95rem; color: #9fd0f5; margin-bottom: 10px; border-left: 3px solid #7fc8ff; padding-left: 8px; }
+
+  /* ===== 지도 ===== */
+  #mapWrap { overflow-x: auto; }
+  #map {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 3px;
+    min-width: 620px;
+  }
+  .tile {
+    position: relative;
+    aspect-ratio: 1.15 / 1;
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,.08);
+    background: #0d1822;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-size: .78rem; transition: all .25s;
+    overflow: visible;
+    user-select: none;
+  }
+  .tile.fog { background: #0d1822; color: #22364a; }
+  .tile.revealed { background: linear-gradient(160deg, #14304a, #0f2438); color: #cfe3f3; }
+  .tile.land.revealed { background: linear-gradient(160deg, #2e5233, #1d3a24); }
+  .tile.mountain.revealed { background: linear-gradient(160deg, #5a5148, #3a352f); }
+  .tile.korea.revealed {
+    background: linear-gradient(160deg, #b8860b, #8a6508);
+    font-weight: bold; box-shadow: 0 0 12px rgba(255,215,0,.5);
+  }
+  .tile.startA.revealed, .tile.startB.revealed { background: linear-gradient(160deg, #6a4fa0, #4a3570); font-weight: bold; }
+  .tile.current {
+    outline: 3px solid #ffd700; outline-offset: 1px;
+    animation: pulse 1.6s infinite;
+    z-index: 2;
+  }
+  @keyframes pulse { 0%,100% { outline-color: #ffd700; } 50% { outline-color: #ff8c42; } }
+  .tile.path-step::after {
+    content: "•"; position: absolute; top: 2px; right: 5px;
+    color: #7fc8ff; font-size: .8rem;
+  }
+  .pressure-ring {
+    position: absolute; width: 58%; height: 58%;
+    border-radius: 50%; opacity: .85;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .62rem; font-weight: bold; pointer-events: none;
+    border: 1px solid rgba(255,255,255,.4);
+  }
+  .pressure-ring.red { background: rgba(220,60,40,.55); color: #fff; }
+  .pressure-ring.blue { background: rgba(50,110,230,.55); color: #fff; }
+  .pressure-ring.gray { background: rgba(160,160,160,.4); color: #eee; }
+  .arrow-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.15rem; color: #ffd700; z-index: 3;
+    text-shadow: 0 0 6px #000; pointer-events: none;
+  }
+  #mapLegend { font-size: .75rem; color: #9fb8cc; margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,.4); }
+
+  /* ===== 폼 ===== */
+  .form-row { margin-bottom: 10px; }
+  .form-row label { display: block; font-size: .78rem; color: #b8cde0; margin-bottom: 3px; }
+  .form-row input, .form-row textarea, .form-row select {
+    width: 100%; padding: 8px 10px; border-radius: 6px;
+    border: 1px solid #3b5a7a; background: #0e1a28; color: #e8eef4; font-size: .9rem;
+  }
+  .hint { font-size: .7rem; color: #7a93a8; margin-top: 2px; }
+  .dir-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    margin: 10px 0;
+  }
+  .dir-btn {
+    padding: 10px 0; border-radius: 8px; border: 1px solid #3b5a7a;
+    background: linear-gradient(160deg, #1b3b58, #12283d);
+    color: #dce9f5; font-size: .85rem; cursor: pointer; transition: all .15s;
+  }
+  .dir-btn:hover:not(:disabled) { background: linear-gradient(160deg, #2a5a86, #1b3f5f); transform: scale(1.04); }
+  .dir-btn:disabled { opacity: .3; cursor: not-allowed; }
+  .dir-btn.active { background: linear-gradient(160deg, #b8860b, #8a6508); border-color: #ffd700; }
+  .btn {
+    width: 100%; padding: 11px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: .95rem; font-weight: bold; color: #10233a;
+    background: linear-gradient(135deg, #7fc8ff, #4aa3e8);
+    transition: filter .15s;
+  }
+  .btn:hover { filter: brightness(1.15); }
+  .btn.secondary { background: linear-gradient(135deg, #93a8b8, #6a8298); }
+  .btn.gold { background: linear-gradient(135deg, #ffd700, #d4a017); }
+  .btn + .btn { margin-top: 8px; }
+
+  /* ===== 피드백 ===== */
+  #feedback {
+    border-radius: 10px; padding: 12px; margin-top: 12px; font-size: .85rem;
+    display: none; line-height: 1.55; animation: fadein .3s;
+  }
+  @keyframes fadein { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; } }
+  #feedback.ok { display: block; background: rgba(50,120,60,.25); border: 1px solid #4a9a55; }
+  #feedback.bad { display: block; background: rgba(160,50,40,.22); border: 1px solid #b0503f; }
+  #feedback h3 { font-size: .9rem; margin-bottom: 6px; }
+  #feedback.ok h3 { color: #8be095; } #feedback.bad h3 { color: #f0a08a; }
+
+  /* ===== 로그 ===== */
+  #log { max-height: 220px; overflow-y: auto; font-size: .78rem; }
+  .log-entry { padding: 6px 8px; border-left: 2px solid #3b5a7a; margin-bottom: 6px; background: rgba(0,0,0,.2); border-radius: 0 6px 6px 0; }
+  .log-entry.fail { border-color: #d05a3f; }
+  .log-entry.move { border-color: #7fc8ff; }
+  .log-entry.win { border-color: #ffd700; background: rgba(255,215,0,.1); }
+  .log-entry .turn-tag { color: #7a93a8; font-size: .68rem; }
+
+  /* ===== 결과 모달 ===== */
+  #modal {
+    position: fixed; inset: 0; background: rgba(5,10,16,.8);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+  }
+  #modal.show { display: flex; }
+  .modal-card {
+    background: linear-gradient(160deg, #14283e, #0d1c2c);
+    border: 2px solid #ffd700; border-radius: 14px;
+    padding: 26px; max-width: 560px; width: 92%;
+    box-shadow: 0 0 40px rgba(255,215,0,.25);
+  }
+  .modal-card h2 { color: #ffd700; font-size: 1.3rem; margin-bottom: 14px; text-align: center; }
+  .impact-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+  .impact-table th, .impact-table td { padding: 8px; border: 1px solid #3b5a7a; font-size: .85rem; text-align: center; }
+  .impact-table th { background: rgba(0,0,0,.3); color: #9fd0f5; }
+  .up { color: #ff8c6a; } .down { color: #7fc8ff; }
+
+  .start-screen { text-align: center; }
+  .start-card {
+    background: linear-gradient(160deg, #14283e, #0d1c2c);
+    border: 1px solid #3b5a7a; border-radius: 12px;
+    padding: 18px; margin: 10px; cursor: pointer; transition: all .2s;
+  }
+  .start-card:hover { border-color: #ffd700; transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
+  .start-card h3 { color: #9fd0f5; margin-bottom: 6px; }
+  .start-card p { font-size: .8rem; color: #b8cde0; }
+  .hidden { display: none !important; }
+  footer { text-align: center; font-size: .72rem; color: #6a8298; padding: 18px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌏 기후 문명 <span>Climate Civ</span></h1>
+  <div class="hud">
+    <div class="stat"><div class="label">턴</div><div class="value" id="hudTurn">0</div></div>
+    <div class="stat"><div class="label">점수</div><div class="value" id="hudScore">0</div></div>
+    <div class="stat"><div class="label">위치</div><div class="value" id="hudPos">-</div></div>
+    <div class="badges" id="hudBadges"></div>
+  </div>
+</header>
+
+<main>
+  <!-- 시작 화면 -->
+  <section id="startScreen" class="panel start-screen">
+    <h2>🧭 탐구 질문: 남방진동이 발생하면 한반도의 날씨는 어떻게 될까?</h2>
+    <p style="font-size:.85rem; color:#b8cde0; margin:10px 0 16px; line-height:1.6;">
+      세계지도 위에서 시작 지점을 선택하고, 관측 데이터를 입력해 대기 순환 방향을 화살표로 예측하세요.<br>
+      예측이 타당하면 대기가 그 방향으로 이동하고, 틀리면 과학 개념 피드백을 받습니다.<br>
+      화살표를 이어 🇰🇷 한반도에 도달하면 남방진동의 영향이 정리됩니다.
+    </p>
+    <div class="start-card" onclick="startGame('A')">
+      <h3>🅰 기본 활동: 동태평양 (칠레 연안)</h3>
+      <p>남방진동 발생 지역 — 적도 태평양 동쪽에서 시작 (권장)</p>
+    </div>
+    <div class="start-card" onclick="startGame('B')">
+      <h3>🅱 심화 활동: 서태평양 (오스트레일리아 북동쪽)</h3>
+      <p>교사 지시에 따라 다른 시작 지점 선택 시 사용</p>
+    </div>
+    <p class="hint">진행 중인 기록이 있으면 자동으로 이어합니다.</p>
+  </section>
+
+  <!-- 게임 화면 -->
+  <section id="gameScreen" class="hidden">
+    <div style="display:grid; gap:16px;">
+      <div class="panel">
+        <h2>🗺 세계지도 (태평양 중심)</h2>
+        <div id="mapWrap"><div id="map"></div></div>
+        <div id="mapLegend">
+          <span class="legend-item"><span class="dot" style="background:#14304a;"></span>해양</span>
+          <span class="legend-item"><span class="dot" style="background:#2e5233;"></span>육지</span>
+          <span class="legend-item"><span class="dot" style="background:#5a5148;"></span>산지</span>
+          <span class="legend-item"><span class="dot" style="background:#b8860b;"></span>한국</span>
+          <span class="legend-item"><span class="dot" style="background:rgba(220,60,40,.7);"></span>기압 상승</span>
+          <span class="legend-item"><span class="dot" style="background:rgba(50,110,230,.7);"></span>기압 하강</span>
+          <span class="legend-item"><span class="dot" style="background:#ffd700;"></span>현재 위치</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>📜 활동 로그 (실패 경험 기록)</h2>
+        <div id="log"></div>
+      </div>
+    </div>
+
+    <div style="display:grid; gap:16px; align-content:start;">
+      <div class="panel">
+        <h2>📋 관측 데이터 입력</h2>
+        <div class="form-row">
+          <label>현재 지점 대기압 (hPa)</label>
+          <input type="number" id="inpPressure" min="995" max="1025" value="1013" step="0.5">
+          <div class="hint">995~1025 hPa (평년 약 1013 hPa)</div>
+        </div>
+        <div class="form-row">
+          <label>현재 지점 해수면 수온 (°C)</label>
+          <input type="number" id="inpSst" min="16" max="32" value="26" step="0.1">
+          <div class="hint">16~32 °C (적도 태평양 평년 약 26~27 °C)</div>
+        </div>
+        <div class="form-row">
+          <label>해수면 높이 이상 (cm, 평년 대비)</label>
+          <input type="number" id="inpSsh" min="-25" max="25" value="0" step="1">
+          <div class="hint">-25~+25 cm</div>
+        </div>
+        <div class="form-row">
+          <label>나의 가설 (학습지 기록)</label>
+          <textarea id="inpHypothesis" rows="2" placeholder="예: 수온이 28°C 이상으로 올라가면 동태평양에서 대류가 강해져 대기가 동쪽으로 순환할 것이다."></textarea>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>🏹 대기 순환 방향 예측 (화살표)</h2>
+        <div class="dir-grid" id="dirGrid"></div>
+        <button class="btn gold" id="btnMove" onclick="submitMove()">예측 제출 →</button>
+        <div id="feedback"></div>
+      </div>
+
+      <div class="panel">
+        <h2>💾 기록</h2>
+        <button class="btn secondary" onclick="exportWorksheet()">📄 학습지 내보내기 (.md)</button>
+        <button class="btn secondary" onclick="downloadSave()">💾 세이브 파일 저장</button>
+        <button class="btn secondary" onclick="resetGame()">🔄 새로 시작</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 도달 결과 모달 -->
+<div id="modal">
+  <div class="modal-card">
+    <h2>🎉 한반도 도달! 남방진동의 영향 분석</h2>
+    <p id="modalText" style="font-size:.88rem; line-height:1.6;"></p>
+    <table class="impact-table" id="impactTable"></table>
+    <p style="font-size:.8rem; color:#b8cde0;">학습지에 시뮬레이션 결과를 표기하고, 실제 관측 데이터와 다른 부분과 그 이유(모형의 한계)를 토론해 보세요.</p>
+    <button class="btn" style="margin-top:14px;" onclick="closeModal()">확인</button>
+  </div>
+</div>
+
+<footer>「인공지능및데이터기반과학교육」 2026학년도 2학기 · 교수학습용 시뮬레이션 · 성취기준 [12지구01-02], [12지구01-05]</footer>
+
+<script src="core.js"></script>
+<script>
+'use strict';
+const C = window.ClimateCore;
+const SAVE_KEY = 'climate-civ-save-v1';
+let G = null;
+let selectedDir = null;
+let lastFeedbackType = null;
+
+const TILES = [];
+for (let r = 0; r < C.GRID_ROWS; r++) {
+  TILES.push([]);
+  for (let c = 0; c < C.GRID_COLS; c++) TILES[r].push(null);
+}
+
+const TILE_LABELS = {
+  ocean: '', land: '🌿', mountain: '⛰', korea: '🇰🇷 한국',
+  startA: 'A 칠레', startB: 'B 호주',
+};
+
+function buildMap() {
+  const map = document.getElementById('map');
+  map.innerHTML = '';
+  for (let r = 0; r < C.GRID_ROWS; r++) {
+    for (let c = 0; c < C.GRID_COLS; c++) {
+      const t = document.createElement('div');
+      t.className = 'tile fog';
+      t.dataset.row = r; t.dataset.col = c;
+      t.innerHTML = '<span class="tile-label"></span>';
+      map.appendChild(t);
+      TILES[r][c] = t;
+    }
+  }
+}
+
+function revealAround(pos) {
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      const p = { row: pos.row + dr, col: pos.col + dc };
+      if (C.inBounds(p)) {
+        const t = TILES[p.row][p.col];
+        const type = C.tileTypeAt(p.row, p.col);
+        t.classList.remove('fog');
+        t.classList.add('revealed', type);
+        if (type === 'ocean') t.classList.remove('land','mountain','korea','startA','startB');
+        t.querySelector('.tile-label').textContent = TILE_LABELS[type] || '';
+      }
+    }
+  }
+}
+
+function render() {
+  // 전체 리셋 후 경로/표식/현재 위치 반영
+  for (let r = 0; r < C.GRID_ROWS; r++) {
+    for (let c = 0; c < C.GRID_COLS; c++) {
+      const t = TILES[r][c];
+      t.classList.remove('current','path-step');
+      t.querySelectorAll('.pressure-ring,.arrow-overlay').forEach(el => el.remove());
+    }
+  }
+  // 밝힐 타일
+  const seen = new Set();
+  G.path.forEach(p => {
+    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+      const q = { row: p.row + dr, col: p.col + dc };
+      if (C.inBounds(q)) seen.add(q.row + ',' + q.col);
+    }
+  });
+  for (const key of seen) {
+    const [r, c] = key.split(',').map(Number);
+    const t = TILES[r][c];
+    if (t.classList.contains('fog')) {
+      const type = C.tileTypeAt(r, c);
+      t.classList.remove('fog'); t.classList.add('revealed', type);
+      t.querySelector('.tile-label').textContent = TILE_LABELS[type] || '';
+    }
+  }
+  // 경로 점 + 화살표
+  for (let i = 1; i < G.path.length; i++) {
+    const from = G.path[i - 1], to = G.path[i];
+    TILES[from.row][from.col].classList.add('path-step');
+    const d = C.dirFromDelta(to.row - from.row, to.col - from.col);
+    const ov = document.createElement('div');
+    ov.className = 'arrow-overlay';
+    ov.textContent = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' }[d.key];
+    TILES[from.row][from.col].appendChild(ov);
+  }
+  // 기압 원
+  G.pressureMarks.forEach(m => {
+    const ring = document.createElement('div');
+    ring.className = 'pressure-ring ' + m.color;
+    ring.textContent = (m.value > 0 ? '+' : '') + m.value;
+    TILES[m.row][m.col].appendChild(ring);
+  });
+  // 현재 위치
+  TILES[G.pos.row][G.pos.col].classList.add('current');
+
+  // HUD
+  document.getElementById('hudTurn').textContent = G.turn;
+  document.getElementById('hudScore').textContent = G.score;
+  document.getElementById('hudPos').textContent = `(${G.pos.row},${G.pos.col})`;
+  document.getElementById('hudBadges').innerHTML =
+    G.badges.map(b => `<span class="badge">${b}</span>`).join('');
+
+  // 로그
+  const logEl = document.getElementById('log');
+  logEl.innerHTML = G.log.map(e => {
+    if (e.type === 'fail') return `<div class="log-entry fail"><span class="turn-tag">T${e.turn}</span> ❌ ${e.dir} — ${e.msg}<br><span style="color:#d0a890;">실패 경험: 위 피드백 이유를 학습지에 기록하세요.</span></div>`;
+    if (e.type === 'move') {
+      const f = e.forecast;
+      return `<div class="log-entry move"><span class="turn-tag">T${e.turn}</span> ➡ ${e.dir} → (${e.to.row},${e.to.col}) [${f.scenario==='elnino'?'엘니뇨':f.scenario==='lanina'?'라니냬':'중립'}]<br>기압 ${fmt(f.pressureAnomaly)} hPa · 기온 ${fmt(f.tempAnomaly)} °C · 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}% (평년 대비)</div>`;
+    }
+    if (e.type === 'win') return `<div class="log-entry win">🏆 ${e.msg}</div>`;
+    return '';
+  }).reverse().join('');
+}
+
+function fmt(v) { return (v > 0 ? '+' : '') + v; }
+
+function buildDirGrid() {
+  const grid = document.getElementById('dirGrid');
+  grid.innerHTML = '';
+  const layout = [null,'N',null,'W',null,'E',null,'S',null];
+  C.DIRECTIONS.forEach(d => {
+    const b = document.createElement('button');
+    b.className = 'dir-btn';
+    b.textContent = { N:'북 ↑', NE:'북동 ↗', E:'동 →', SE:'남동 ↘', S:'남 ↓', SW:'남서 ↙', W:'서 ←', NW:'북서 ↖' }[d.key];
+    b.dataset.key = d.key;
+    b.onclick = () => selectDir(d.key, b);
+    grid.appendChild(b);
+  });
+}
+
+function selectDir(key, btn) {
+  document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  selectedDir = key;
+}
+
+function readObs() {
+  return {
+    pressure: parseFloat(document.getElementById('inpPressure').value),
+    sst: parseFloat(document.getElementById('inpSst').value),
+    ssh: parseFloat(document.getElementById('inpSsh').value),
+  };
+}
+
+function showFeedback(evaluation) {
+  const fb = document.getElementById('feedback');
+  fb.className = evaluation.valid ? 'ok' : 'bad';
+  fb.innerHTML = `<h3>${evaluation.valid ? '✅' : '❌'} ${evaluation.feedback.title}</h3><p>${evaluation.feedback.body}</p>`;
+}
+
+function submitMove() {
+  if (!G || G.status !== 'playing') return;
+  if (!selectedDir) { alert('화살표 방향을 먼저 선택하세요.'); return; }
+  const obs = readObs();
+  if ([obs.pressure, obs.sst, obs.ssh].some(v => isNaN(v))) { alert('관측 데이터를 모두 입력하세요.'); return; }
+  const hyp = document.getElementById('inpHypothesis').value.trim();
+  if (hyp && !G.hypotheses.includes(hyp)) G.hypotheses += (G.hypotheses ? '\n' : '') + hyp;
+
+  const res = C.tryMove(G, obs, selectedDir);
+  showFeedback(res.evaluation);
+
+  if (res.ok) {
+    const f = res.forecast;
+    if (G.status === 'won') {
+      G.log.push({ type: 'win', msg: '한반도 도달! 남방진동의 영향을 확인했습니다.' });
+    }
+  }
+  selectedDir = null;
+  document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+  saveGame();
+  render();
+  if (G.status === 'won') openModal();
+}
+
+function openModal() {
+  const imp = G.finalImpact;
+  const scenLabel = imp.scenario === 'elnino' ? '엘니뇨' : imp.scenario === 'lanina' ? '라니냬' : '중립';
+  document.getElementById('modalText').innerHTML =
+    `당신의 화살표가 한반도에 도달했습니다. 이번 시뮬레이션의 대기·해양 상태는 <b>${scenLabel}</b>로 식별되었습니다.<br>` +
+    `${scenLabel === '엘니뇨' ? '엘니뇨 시 동태평양 수온 상승으로 대류 중심이 동쪽으로 이동하고, 이는 원격 상관(teleconnection)을 통해 한반도 겨울 날씨(기온 상승 경향)에 영향을 줍니다.' : scenLabel === '라니냬' ? '라니냬 시 서태평양 대류가 강화되고, 원격 상관을 통해 한반도 겨울 기온이 평년보다 낮아지고 강수량 변화가 나타날 수 있습니다.' : '중립 상태에서는 남방진동의 신호가 약해 한반도 기후에 뚜렷한 영향이 나타나지 않습니다.'}`;
+  const tbl = document.getElementById('impactTable');
+  tbl.innerHTML = `<tr><th>항목</th><th>평년 대비 변화</th><th>해석</th></tr>
+    <tr><td>대기압</td><td class="${imp.pressureAnomaly>0?'up':imp.pressureAnomaly<0?'down':''}">${fmt(imp.pressureAnomaly)} hPa</td><td>${imp.pressureAnomaly>0?'고기압성 경향':imp.pressureAnomaly<0?'저기압성 경향':'변화 없음'}</td></tr>
+    <tr><td>기온</td><td class="${imp.tempAnomaly>0?'up':'down'}">${fmt(imp.tempAnomaly)} °C</td><td>${imp.tempAnomaly>0?'평년보다 따뜻함':'평년보다 쌀쌀함'}</td></tr>
+    <tr><td>강수량</td><td class="${imp.precipAnomaly>0?'up':'down'}">${imp.precipAnomaly>0?'+':''}${imp.precipAnomaly}%</td><td>${imp.precipAnomaly>0?'평년보다 많음(강수 초과)':'평년보다 적음(강수 부족)'}</td></tr>`;
+  document.getElementById('modal').classList.add('show');
+}
+function closeModal() { document.getElementById('modal').classList.remove('show'); }
+
+// ===== 저장 =====
+function saveGame() {
+  if (!G) return;
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {}
+}
+function loadGame() {
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (raw) { const g = JSON.parse(raw); if (g && g.pos && g.path) return g; }
+  } catch (e) {}
+  return null;
+}
+function startGame(startKey) {
+  G = C.newGame(startKey);
+  selectedDir = null;
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  saveGame(); render();
+}
+function resetGame() {
+  if (!confirm('모든 기록을 지우고 새로 시작할까요?')) return;
+  try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+  G = null;
+  document.getElementById('gameScreen').classList.add('hidden');
+  document.getElementById('startScreen').classList.remove('hidden');
+  document.getElementById('feedback').className = '';
+}
+function downloadSave() {
+  const blob = new Blob([JSON.stringify(G, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'climate-civ-save.json';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function exportWorksheet() {
+  if (!G) return;
+  const scen = G.observations.length ? G.observations[G.observations.length - 1].scenario : 'neutral';
+  const scenLabel = scen === 'elnino' ? '엘니뇨' : scen === 'lanina' ? '라니냬' : '중립';
+  let md = `# 기후 문명 학습지 — 남방진동이 한반도에 미치는 영향\n\n`;
+  md += `- 시작 지점: ${G.startKey === 'A' ? 'A: 동태평양 (칠레 연안)' : 'B: 서태평양 (오스트레일리아)'}\n`;
+  md += `- 최종 식별된 시나리오: ${scenLabel}\n- 턴 수: ${G.turn} / 점수: ${G.score}\n`;
+  md += `- 배지: ${G.badges.length ? G.badges.join(', ') : '없음'}\n\n`;
+  md += `## 나의 가설\n${G.hypotheses || '(기록 없음)'}\n\n`;
+  md += `## 화살표 경로\n${G.path.map((p,i) => `${i===0?'시작':i}: (${p.row},${p.col})`).join(' → ')}\n\n`;
+  md += `## 실패 경험 기록\n`;
+  if (G.failures.length === 0) md += `(실패 없음)\n`;
+  else G.failures.forEach(f => { md += `- [턴 ${f.turn}] 방향 ${f.dir} — ${f.reason}\n  - ${f.lesson}\n`; });
+  md += `\n## 예측·기후 변화 관측 기록\n`;
+  G.log.filter(e => e.type === 'move').forEach(e => {
+    const f = e.forecast;
+    md += `- T${e.turn} ${e.dir} → (${e.to.row},${e.to.col}): 기압 ${fmt(f.pressureAnomaly)} hPa, 기온 ${fmt(f.tempAnomaly)} °C, 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}%\n`;
+  });
+  if (G.finalImpact) {
+    const i2 = G.finalImpact;
+    md += `\n## 한반도 영향 분석\n- 대기압 ${fmt(i2.pressureAnomaly)} hPa\n- 기온 ${fmt(i2.tempAnomaly)} °C\n- 강수량 ${i2.precipAnomaly>0?'+':''}${i2.precipAnomaly}%\n\n### 토론: 시뮬레이션 결과가 실제 관측 데이터와 다른 부분과 그 이유(모형의 한계)\n(여기에 작성)\n`;
+  }
+  const blob = new Blob([md], { type: 'text/markdown' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '기후문명_학습지.md';
+  a.click(); URL.revokeObjectURL(a.href);
+}
+
+// 초기화
+buildMap();
+buildDirGrid();
+const saved = loadGame();
+if (saved) {
+  G = saved;
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('inpHypothesis').value = saved.hypotheses || '';
+  render();
+}
+</script>
+</body>
+</html>
