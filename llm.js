@@ -1,0 +1,169 @@
+(function (global) {
+  'use strict';
+
+  // ===== 예측 이유 평가 + 챗봇 (LLM API 연동, 오프라인 폴백 포함) =====
+  // 지원: OpenAI 호환 API (OpenAI, Mistral, Groq 등 — baseURL/model만 변경)
+
+  const LS_KEYS = { settings: 'climate-civ-llm-settings' };
+
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem(LS_KEYS.settings);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    return { provider: 'openai', apiKey: '', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' };
+  }
+  function saveSettings(s) {
+    try { localStorage.setItem(LS_KEYS.settings, JSON.stringify(s)); } catch (e) {}
+  }
+
+  function isConfigured() {
+    const s = loadSettings();
+    return !!(s.apiKey && s.baseUrl && s.model);
+  }
+
+  async function chat(messages, maxTokens) {
+    const s = loadSettings();
+    if (!s.apiKey) throw new Error('API 키가 설정되지 않았습니다');
+    const res = await fetch(s.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + s.apiKey,
+      },
+      body: JSON.stringify({
+        model: s.model,
+        messages: messages,
+        max_tokens: maxTokens || 500,
+        temperature: 0.4,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error('API 오류 (' + res.status + '): ' + text.slice(0, 200));
+    }
+    const data = await res.json();
+    return data.choices && data.choices[0] && data.choices[0].message
+      ? data.choices[0].message.content : '';
+  }
+
+  // ===== 예측 이유 타당성 평가 =====
+  // 방향 판정은 로컬 규칙(정답 경로)이 이미 하므로, LLM은 '이유의 과학적 타당성'만 평가.
+  // 결과: { score(0-10), verdict('good'|'partial'|'weak'), comment, offline:bool }
+
+  const KEY_CONCEPTS = [
+    { re: /수온|해수면 온도|sst|난수|냉수/i, w: 2 },
+    { re: /기압|고기압|저기압|hpa/i, w: 2 },
+    { re: /무역풍|동풍|바람/i, w: 2 },
+    { re: /대류|상승 기류|하강 기류|수렴|발산/i, w: 2 },
+    { re: /워커|순환|용승|엘니뇨|라니냬|원격 상관|로스비|제트|몬순/i, w: 2 },
+    { re: /해수면 높이|워치|기울|경사/i, w: 1 },
+    { re: /코리올리|북반구|남반구|위도/i, w: 1 },
+  ];
+
+  function offlineEvaluate(reason) {
+    var score = 0;
+    KEY_CONCEPTS.forEach(function (k) { if (k.re.test(reason)) score += k.w; });
+    var verdict = score >= 5 ? 'good' : score >= 2 ? 'partial' : 'weak';
+    var comment = verdict === 'good'
+      ? '과학 개념(대기·해양 인자)을 근거로 제시했습니다.'
+      : verdict === 'partial'
+        ? '일부 과학적 요소가 있지만, 대기 순환을 결정하는 핵심 인자(수온·기압·무역풍·대류)와의 연결이 약합니다.'
+        : '과학적 근거가 거의 없습니다. 지역 관측(지도 블럭 클릭)에서 얻은 수온·대류 정보를 이유에 활용해 보세요.';
+    return { score: Math.min(10, score * 2), verdict: verdict, comment: comment, offline: true };
+  }
+
+  async function evaluateReason(reason, context) {
+    if (!isConfigured()) return offlineEvaluate(reason);
+    const sys = [
+      '당신은 고등학교 지구과학2 교사입니다. 학생이 남방진동(엘니뇨/라니냬) 대기 순환 예측 게임에서',
+      '제출한 "예측 이유"의 과학적 타당성을 평가합니다.',
+      '평가 기준: 대기·해양의 핵심 인자(해수면 수온, 대기압, 무역풍, 대류/상승·하강 기류, 워커 순환, 해수면 높이 등)를',
+      '근거로 언급하는지, 논리적으로 방향과 연결되는지. 고등학교 2학년이 이해할 수 있는 존댓말로 답하세요.',
+      '반드시 아래 JSON 형식으로만 답하세요. 다른 설명 금지:',
+      '{"score": 0~10 정수, "verdict": "good"|"partial"|"weak", "comment": "80~150자 평가"}',
+    ].join(' ');
+    const user = [
+      '시나리오: ' + (context.scenarioLabel || '엘니뇨/라니냬'),
+      '학생의 예측 방향: ' + (context.dirLabel || '') + '(' + (context.dir || '') + ')',
+      '판정 결과: ' + (context.valid ? '정답' : '오답'),
+      context.note ? '해당 단계 과학 노트: ' + context.note : '',
+      '학생의 예측 이유: "' + reason + '"',
+      '이 예측 이유의 과학적 타당성을 평가하세요.',
+    ].filter(Boolean).join('\n');
+    try {
+      const out = await chat([
+        { role: 'system', content: sys },
+        { role: 'user', content: user },
+      ], 300);
+      const m = out.match(/\{[\s\S]*\}/);
+      if (m) {
+        const j = JSON.parse(m[0]);
+        return {
+          score: Math.max(0, Math.min(10, Math.round(Number(j.score) || 0))),
+          verdict: ['good', 'partial', 'weak'].includes(j.verdict) ? j.verdict : 'partial',
+          comment: String(j.comment || '').slice(0, 300),
+          offline: false,
+        };
+      }
+    } catch (e) { /* 폴백 */ }
+    return offlineEvaluate(reason);
+  }
+
+  // ===== 챗봇: 예측 결과 설명에 대해 재질문 =====
+  async function askFollowup(question, context, history) {
+    const messages = [
+      {
+        role: 'system',
+        content: [
+          '당신은 고등학교 지구과학2 「대기와 해양의 상호작용」 단원의 친절한 튜터입니다.',
+          '학생이 남방진동 대기 순환 예측 게임에서 받은 결과 설명에 대해 추가 질문을 합니다.',
+          '고등학교 수준(지구과학2)의 개념 범위 안에서, 존댓말로 3~6문장 이내로 간결하게 답하세요.',
+          '설계에 없는 심화 내용(대학 수준 수식 등)은 "교육과정 범위를 벗어나지만 간단히 말하면" 정도로만 언급하세요.',
+          context ? '현재 상황 — 시나리오: ' + (context.scenarioLabel || '?') +
+            ', 마지막 단계 노트: ' + (context.note || '없음') : '',
+        ].filter(Boolean).join(' '),
+      },
+    ];
+    (history || []).slice(-6).forEach(h => messages.push(h));
+    messages.push({ role: 'user', content: question });
+
+    if (!isConfigured()) {
+      return offlineFollowup(question, context);
+    }
+    try {
+      return await chat(messages, 500);
+    } catch (e) {
+      return '⚠️ API 호출에 실패했습니다 (' + e.message.slice(0, 120) + ')\n\n' +
+        offlineFollowup(question, context);
+    }
+  }
+
+  const OFFLINE_FAQ = [
+    { re: /무역풍|동풍/i, a: '무역풍은 적도 지역에서 동쪽에서 서쪽으로 부는 바람입니다. 라니냬 때는 무역풍이 강화되어 찬 용승류가 발달하고, 엘니뇨 때는 약화되어 난수가 동쪽으로 퍼집니다.' },
+    { re: /워커/i, a: '워커 순환은 적도 태평양의 동서 방향 대기 순환입니다. 서태평양(인도네시아)에서 상승, 동태평양에서 하강하는 것이 평년 상태이며, 엘니뇨 시 이 순환이 약화되거나 반전됩니다.' },
+    { re: /원격 상관|텔레커넥/i, a: '원격 상관(teleconnection)은 멀리 떨어진 지역 간 대기의 연결 현상입니다. 남방진동이 한반도 겨울 기온·강수량에 영향을 주는 것도 원격 상관의 대표적 예입니다.' },
+    { re: /용승|업웰/i, a: '용승(upwelling)은 바람이 표층의 물을 밀어내면 아래의 찬 물이 솟아오르는 현상입니다. 남아메리카 연안(칠레·페루)에서 발달하며, 라니냬 때 강화됩니다.' },
+    { re: /제트|로스비/i, a: '로스비 파동은 중위도 상층의 큰 굴곡 흐름으로, 적도의 대기 변화가 북쪽으로 전파되는 경로가 됩니다. 이 파동을 따라 남방진동의 신호가 한반도까지 도달할 수 있습니다.' },
+    { re: /왜.*한반도|한반도.*영향/i, a: '남방진동은 태평양의 대기·해양 상태를 바꾸고, 그 신호가 제트 기류와 로스비 파동을 타고 북상하여 시베리아 고기압의 세기와 한반도 겨울 기온·강수량에 영향을 줍니다.' },
+  ];
+  function offlineFollowup(question, context) {
+    for (const f of OFFLINE_FAQ) {
+      if (f.re.test(question)) return '[오프라인 답변] ' + f.a;
+    }
+    return '[오프라인 답변] API 키가 설정되지 않아 간단한 답변만 제공됩니다.\n' +
+      '지역 관측(지도 블럭 클릭)에서 수온·대류 정보를 확인하고, 예측 이유에 그 값을 인용해 보세요.\n' +
+      '(⚙️ 설정에서 API 키를 넣으면 더 자세한 튜터 답변을 받을 수 있습니다.)';
+  }
+
+  global.ReasonLLM = {
+    loadSettings: loadSettings,
+    saveSettings: saveSettings,
+    isConfigured: isConfigured,
+    chat: chat,
+    evaluateReason: evaluateReason,
+    offlineEvaluate: offlineEvaluate,
+    askFollowup: askFollowup,
+  };
+  if (typeof module !== 'undefined' && module.exports) module.exports = global.ReasonLLM;
+})(typeof window !== 'undefined' ? window : globalThis);

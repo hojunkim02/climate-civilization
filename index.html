@@ -130,6 +130,34 @@
   .start-box p { font-size: .8rem; color: var(--sub); line-height: 1.65; }
   .start-box .instruction { color: var(--accent); font-weight: 700; margin-top: 10px; font-size: .82rem; }
   .scenario-btns { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+  .mode-tabs { display: flex; gap: 6px; justify-content: center; margin: 14px 0 6px; }
+  .mode-tab {
+    padding: 8px 18px; border-radius: 999px; border: 1.5px solid var(--border-strong);
+    background: #fff; cursor: pointer; font-size: .8rem; font-weight: 700; color: var(--sub);
+    transition: all .13s;
+  }
+  .mode-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .custom-obs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 10px 0; }
+  .custom-obs input { width: 100%; padding: 8px 9px; border-radius: 8px; border: 1px solid var(--border-strong); background: #fcfdfe; font-size: .84rem; }
+  .custom-obs label { display: block; font-size: .68rem; font-weight: 600; color: var(--sub); margin-bottom: 2px; }
+  #customVerdict { font-size: .74rem; padding: 8px 10px; border-radius: 8px; background: var(--accent-soft); border: 1px solid #dde1f5; margin-top: 6px; line-height: 1.5; }
+  /* 챗봇 */
+  #chatSection { margin-top: 10px; border-top: 1px dashed var(--border-strong); padding-top: 10px; }
+  #chatLog { display: grid; gap: 8px; max-height: 220px; overflow-y: auto; margin-bottom: 8px; }
+  .chat-msg { padding: 8px 11px; border-radius: 11px; font-size: .76rem; line-height: 1.6; }
+  .chat-msg.user { background: var(--accent); color: #fff; margin-left: 15%; border-bottom-right-radius: 4px; }
+  .chat-msg.bot { background: #f1f3f7; color: var(--text); margin-right: 15%; border-bottom-left-radius: 4px; }
+  .chat-msg.bot .offline-tag { display: inline-block; font-size: .64rem; background: #e2e8f0; border-radius: 5px; padding: 1px 6px; margin-bottom: 3px; color: var(--sub); }
+  .chat-input-row { display: flex; gap: 6px; }
+  .chat-input-row input { flex: 1; padding: 8px 10px; border-radius: 9px; border: 1px solid var(--border-strong); background: #fcfdfe; font-size: .8rem; }
+  .chat-input-row button { padding: 8px 14px; border-radius: 9px; border: none; background: var(--accent); color: #fff; font-weight: 700; font-size: .78rem; cursor: pointer; }
+  .chat-input-row button:disabled { opacity: .5; cursor: wait; }
+  /* 설정 모달 */
+  .settings-grid { display: grid; gap: 10px; margin: 12px 0; }
+  .settings-grid label { font-size: .72rem; font-weight: 600; color: var(--sub); display: block; margin-bottom: 3px; }
+  .settings-grid input { width: 100%; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: #fcfdfe; font-size: .84rem; }
+  #llmBadge { font-size: .66rem; padding: 2px 8px; border-radius: 999px; background: #e2e8f0; color: var(--sub); }
+  #llmBadge.on { background: #d1fae5; color: #147a3d; }
   .scenario-btn {
     padding: 11px 22px; border-radius: 11px; border: 1.5px solid var(--border-strong); cursor: pointer;
     background: #fff; color: var(--text); font-size: .84rem; font-weight: 600;
@@ -212,6 +240,7 @@
 <header>
   <h1>🌏 기후 문명 <span>Climate Civ</span></h1>
   <div class="hud">
+    <button class="scenario-btn" style="padding:4px 12px;font-size:.72rem;" onclick="openSettings()">⚙️ AI 설정</button>
     <span class="chip">턴 <b id="hudTurn">0</b></span>
     <span class="chip">점수 <b id="hudScore">0</b></span>
     <span class="chip">📍 <b id="hudPos">—</b></span>
@@ -235,6 +264,19 @@
                대기 순환이 한반도로 이어지는 길을 예측하세요.</p>
             <p class="instruction">👇 시작 지점을 선택하세요</p>
             <div class="scenario-btns" id="startBtns"></div>
+            <div class="mode-tabs" id="modeTabs" style="display:none;">
+              <button class="mode-tab active" data-mode="preset" onclick="setStartMode('preset')">프리셋 모드</button>
+              <button class="mode-tab" data-mode="custom" onclick="setStartMode('custom')">직접입력 모드</button>
+            </div>
+            <div id="customObsBox" style="display:none;">
+              <p style="font-size:.76rem;color:var(--sub);margin-bottom:8px;">시작 지점에서 직접 관측한 데이터를 입력하세요. 시스템이 이를 분석해 남방진동 상황을 판별합니다.</p>
+              <div class="custom-obs">
+                <div><label>대기압 (hPa)</label><input type="number" id="cPressure" value="1013" step="0.5"></div>
+                <div><label>해수면 수온 (°C)</label><input type="number" id="cSst" value="26" step="0.1"></div>
+                <div><label>해수면 높이 이상 (cm)</label><input type="number" id="cSsh" value="0" step="1"></div>
+              </div>
+              <div id="customVerdict">— 관측값을 입력하면 자동으로 판별됩니다 —</div>
+            </div>
           </div>
         </div>
         <div id="regionCard">
@@ -287,12 +329,20 @@
       <h2><span class="icon">🏹</span> 대기 순환 방향 예측</h2>
       <div class="dir-grid" id="dirGrid"></div>
       <div class="form-row full" style="margin-bottom:8px;">
-        <label>예측 이유 (필수) <span style="color:#e0245e;">*</span></label>
-        <textarea id="inpReason" rows="2" placeholder="이 방향을 선택한 과학적 근거를 작성하세요. (예: 이 지역 해수면 온도가 평년보다 높아 대류가 강화되고, 상승 기류 주변으로 공기가 수렴하므로 북동쪽으로 이동할 것이다.)"></textarea>
-        <div class="hint" id="reasonCount">0 / 300자 · 근거 없이는 제출할 수 없습니다</div>
+        <label>예측 이유 (필수) <span style="color:#e0245e;">*</span> <span id="llmBadge">오프라인 평가</span></label>
+        <textarea id="inpReason" rows="4" maxlength="500" placeholder="이 방향을 선택한 과학적 근거를 작성하세요.&#10;&#10;여기에 남긴 이유는 AI(또는 오프라인 평가기)가 과학적 타당성을 채점하고, 결과 설명과 함께 다시 질문할 수도 있습니다.&#10;&#10;예: 이 지역 해수면 온도가 평년보다 높아 대류가 강화되고, 상승 기류 주변으로 공기가 수렴하므로 북동쪽으로 이동할 것이다."></textarea>
+        <div class="hint" id="reasonCount">0 / 500자 · 근거 없이는 제출할 수 없습니다</div>
       </div>
       <button class="btn primary" onclick="submitMove()">예측 제출 →</button>
       <div id="feedback"></div>
+      <div id="chatSection">
+        <div style="font-size:.76rem;font-weight:700;color:var(--sub);margin-bottom:6px;">💬 결과 설명에 대해 더 물어보기</div>
+        <div id="chatLog"></div>
+        <div class="chat-input-row">
+          <input type="text" id="chatInput" placeholder="예: 워커 순환이란 정확히 뭐예요?" onkeydown="if(event.key==='Enter')sendChat()">
+          <button id="chatSendBtn" onclick="sendChat()">질문</button>
+        </div>
+      </div>
     </div>
 
     <div class="panel">
@@ -303,6 +353,24 @@
     </div>
   </div>
 </main>
+
+<!-- AI 설정 모달 -->
+<div id="settingsModal" style="position:fixed;inset:0;background:rgba(20,28,40,.4);display:none;align-items:center;justify-content:center;z-index:70;backdrop-filter:blur(3px);">
+  <div class="modal-card" style="max-width:480px;">
+    <h2>⚙️ AI 평가 설정</h2>
+    <p style="font-size:.76rem;color:var(--sub);line-height:1.6;">OpenAI 호환 API 키를 입력하면 예측 이유의 과학적 타당성을 LLM이 채점하고, 챗봇도 더 정확해집니다. 키가 없으면 오프라인 규칙 기반 평가로 동작합니다. 키는 이 브라우저에만 저장됩니다.</p>
+    <div class="settings-grid">
+      <div><label>Base URL</label><input type="text" id="setBaseUrl" placeholder="https://api.openai.com/v1"></div>
+      <div><label>Model</label><input type="text" id="setModel" placeholder="gpt-4o-mini"></div>
+      <div><label>API Key</label><input type="password" id="setApiKey" placeholder="sk-..."></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn primary" onclick="saveSettingsFromUI()">저장</button>
+      <button class="btn secondary" onclick="closeSettings()">닫기</button>
+    </div>
+    <p style="font-size:.68rem;color:#94a3b5;margin-top:10px;">※ 수업용 PC에 키를 남기지 않으려면 수업 종료 후 닫기 전에 키를 지우고 저장하세요.</p>
+  </div>
+</div>
 
 <!-- 도달 결과 모달 -->
 <div id="modal">
@@ -319,12 +387,14 @@
 <footer>「인공지능및데이터기반과학교육」 2026학년도 2학기 · 교수학습용 시뮬레이션 · 성취기준 [12지구01-02], [12지구01-05]</footer>
 
 <script src="core.js"></script>
+<script src="llm.js"></script>
 <script>
 'use strict';
 const C = window.ClimateCore;
 const SAVE_KEY = 'climate-civ-save-v2';
 let G = null;
 let selectedDir = null;
+let lastNote = null;
 
 function lonLatToXY(lon, lat) {
   return { x: (lon + 180) * 4, y: (90 - lat) * 4 };
@@ -389,6 +459,10 @@ function hideRegionCard() {
 }
 
 // ===== 시작 화면 =====
+let startMode = 'preset'; // 'preset' | 'custom'
+let chosenStart = null;
+let customVerdict = null;
+
 function buildStartButtons() {
   const box = document.getElementById('startBtns');
   box.innerHTML = '';
@@ -400,28 +474,95 @@ function buildStartButtons() {
     box.appendChild(btn);
   }
 }
+
+function setStartMode(mode) {
+  startMode = mode;
+  document.querySelectorAll('.mode-tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.mode === mode));
+  document.getElementById('customObsBox').style.display = mode === 'custom' ? 'block' : 'none';
+  if (mode === 'custom') updateCustomVerdict();
+}
+
+function updateCustomVerdict() {
+  const p = parseFloat(document.getElementById('cPressure').value);
+  const s = parseFloat(document.getElementById('cSst').value);
+  const h = parseFloat(document.getElementById('cSsh').value);
+  if ([p, s, h].some(v => isNaN(v))) {
+    customVerdict = null;
+    document.getElementById('customVerdict').textContent = '관측값을 모두 입력하세요.';
+    return;
+  }
+  customVerdict = C.classifyFromObservation(p, s, h);
+  const v = document.getElementById('customVerdict');
+  if (customVerdict.verdict === 'uncertain') {
+    v.innerHTML = '🤔 <b>판별 불확실</b> — ' + customVerdict.evidence +
+      '<br>엘니뇨/라니냬 신호가 뚜렷하지 않습니다. 수치를 조정해 보세요.';
+  } else {
+    const label = customVerdict.verdict === 'elnino' ? '🔥 엘니뇨' : '❄️ 라니냬';
+    v.innerHTML = '판별 결과: <b>' + label + '</b> 상황<br>근거: ' + customVerdict.evidence;
+  }
+}
+
 function chooseScenario(startKey) {
+  chosenStart = startKey;
   const box = document.getElementById('startBtns');
   box.innerHTML = '';
+  document.getElementById('modeTabs').style.display = 'flex';
+
   const p = document.createElement('p');
-  p.style.cssText = 'font-size:.8rem;color:#4f46e5;font-weight:700;margin:10px 0;';
-  p.textContent = (startKey === 'A' ? '🅰 칠레 연안' : '🅱 호주 북동쪽') + '에서 시작합니다. 남방진동 상황을 선택하세요:';
+  p.style.cssText = 'font-size:.8rem;color:#4f46e5;font-weight:700;margin:10px 0 4px;';
+  p.textContent = (startKey === 'A' ? '🅰 칠레 연안' : '🅱 호주 북동쪽') + '에서 시작합니다.';
   box.appendChild(p);
+
+  // 프리셋 버튼들
+  const presetWrap = document.createElement('div');
+  presetWrap.className = 'scenario-btns';
+  presetWrap.id = 'presetWrap';
   for (const sc of ['elnino', 'lanina']) {
     const btn = document.createElement('button');
     btn.className = 'scenario-btn';
     btn.innerHTML = sc === 'elnino' ? '🔥 엘니뇨 상황' : '❄️ 라니냬 상황';
     btn.title = C.SCENARIOS[sc].desc;
-    btn.onclick = () => startGame(startKey, sc);
-    box.appendChild(btn);
+    btn.onclick = () => startGame(startKey, sc, { mode: 'preset' });
+    presetWrap.appendChild(btn);
   }
+  box.appendChild(presetWrap);
+
+  // 직접입력 시작 버튼 (customObsBox 안에 배치되므로 여기선 이동)
+  const startCustom = document.createElement('button');
+  startCustom.className = 'btn primary';
+  startCustom.style.marginTop = '8px';
+  startCustom.textContent = '관측값으로 게임 시작 →';
+  startCustom.onclick = () => {
+    if (!customVerdict || customVerdict.verdict === 'uncertain') {
+      alert('관측 데이터로 시나리오를 판별할 수 없습니다.\n수치를 조정해 엘니뇨 또는 라니냬 신호를 만들어 주세요.\n\n근거: ' + (customVerdict ? customVerdict.evidence : '입력값 확인 필요'));
+      return;
+    }
+    startGame(startKey, customVerdict.verdict, {
+      mode: 'custom',
+      customObs: {
+        pressure: parseFloat(document.getElementById('cPressure').value),
+        sst: parseFloat(document.getElementById('cSst').value),
+        ssh: parseFloat(document.getElementById('cSsh').value),
+        evidence: customVerdict.evidence,
+      },
+    });
+  };
+  document.getElementById('customObsBox').appendChild(startCustom);
+
+  setStartMode(startMode);
 }
 
-function startGame(startKey, scenarioKey) {
-  G = C.newGame(startKey, scenarioKey);
+function startGame(startKey, scenarioKey, opts) {
+  G = C.newGame(startKey, scenarioKey, opts || { mode: startMode });
   selectedDir = null;
+  chatHistory = [];
+  document.getElementById('chatLog').innerHTML = '';
   document.getElementById('startOverlay').classList.add('hidden');
-  document.getElementById('inpScenario').value = C.SCENARIOS[scenarioKey].label + ' 상황';
+  const modeText = G.mode === 'custom' ? ' (관측 판별)' : '';
+  document.getElementById('inpScenario').value = C.SCENARIOS[scenarioKey].label + ' 상황' + modeText;
+  document.getElementById('inpPressure').value = G.customObs ? G.customObs.pressure : document.getElementById('inpPressure').value;
+  document.getElementById('inpSst').value = G.customObs ? G.customObs.sst : document.getElementById('inpSst').value;
   document.getElementById('inpReason').value = '';
   updateReasonCount();
   hideRegionCard();
@@ -573,18 +714,89 @@ function selectDir(key) {
   selectedDir = key;
 }
 
-function showFeedback(evaluation) {
+function showFeedback(evaluation, reasonEval) {
   const fb = document.getElementById('feedback');
   fb.className = evaluation.valid ? 'ok' : 'bad';
   let body;
   if (evaluation.valid) {
-    body = `<p>대기가 <b>${dirLabel(selectedDir)}</b> 방향으로 이동했습니다.</p>` +
+    body = `<p>대기가 <b>${dirLabel(lastSubmittedDir)}</b> 방향으로 이동했습니다.</p>` +
       (evaluation.note ? `<div class="sci">🔬 ${evaluation.note}</div>` : '');
   } else {
     body = `<p>대기 순환이 그 방향으로 흐르지 않습니다. 지역 관측(지도 블럭 클릭)을 다시 살펴보세요.</p>` +
       (evaluation.hint ? `<div class="sci">💡 힌트: <b>${evaluation.hint}</b> 방향을 생각해 보세요.</div>` : '');
   }
+  if (reasonEval) {
+    const v = reasonEval.verdict;
+    const icon = v === 'good' ? '🌟' : v === 'partial' ? '🔎' : '🧭';
+    const tag = reasonEval.offline ? '오프라인 평가' : 'AI 평가';
+    body += `<div class="sci" style="margin-top:8px;">${icon} <b>예측 이유 채점 (${tag}): ${reasonEval.score}/10</b><br>${reasonEval.comment}</div>`;
+  }
   fb.innerHTML = `<h3>${evaluation.valid ? '✅ 타당한 예측' : '❌ 예측 실패'}</h3>${body}`;
+}
+
+// ===== 챗봇 =====
+let chatHistory = [];
+let lastSubmittedDir = null;
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q) return;
+  input.value = '';
+  const logEl = document.getElementById('chatLog');
+  logEl.insertAdjacentHTML('beforeend', `<div class="chat-msg user">${esc(q)}</div>`);
+  logEl.scrollTop = logEl.scrollHeight;
+
+  const btn = document.getElementById('chatSendBtn');
+  btn.disabled = true; btn.textContent = '…';
+  const ctx = {
+    scenarioLabel: G ? C.SCENARIOS[G.scenario].label : null,
+    note: lastNote || null,
+  };
+  const answer = await window.ReasonLLM.askFollowup(q, ctx, chatHistory);
+  btn.disabled = false; btn.textContent = '질문';
+
+  chatHistory.push({ role: 'user', content: q });
+  chatHistory.push({ role: 'assistant', content: answer });
+  const offlineTag = answer.startsWith('[오프라인') || answer.startsWith('⚠️')
+    ? '<span class="offline-tag">오프라인</span><br>' : '';
+  logEl.insertAdjacentHTML('beforeend', `<div class="chat-msg bot">${offlineTag}${esc(answer).replace(/\n/g, '<br>')}</div>`);
+  logEl.scrollTop = logEl.scrollHeight;
+  saveGame();
+}
+
+function esc(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// ===== AI 설정 =====
+function openSettings() {
+  const s = window.ReasonLLM.loadSettings();
+  document.getElementById('setBaseUrl').value = s.baseUrl || '';
+  document.getElementById('setModel').value = s.model || '';
+  document.getElementById('setApiKey').value = s.apiKey || '';
+  document.getElementById('settingsModal').style.display = 'flex';
+}
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+function saveSettingsFromUI() {
+  const s = {
+    baseUrl: document.getElementById('setBaseUrl').value.trim() || 'https://api.openai.com/v1',
+    model: document.getElementById('setModel').value.trim() || 'gpt-4o-mini',
+    apiKey: document.getElementById('setApiKey').value.trim(),
+  };
+  window.ReasonLLM.saveSettings(s);
+  updateLlmBadge();
+  closeSettings();
+}
+function updateLlmBadge() {
+  const badge = document.getElementById('llmBadge');
+  if (window.ReasonLLM.isConfigured()) {
+    badge.textContent = 'AI 채점 ON'; badge.classList.add('on');
+  } else {
+    badge.textContent = '오프라인 평가'; badge.classList.remove('on');
+  }
 }
 
 function submitMove() {
@@ -599,6 +811,7 @@ function submitMove() {
   const hyp = document.getElementById('inpHypothesis').value.trim();
   if (hyp && !G.hypotheses.includes(hyp)) G.hypotheses += (G.hypotheses ? '\n' : '') + hyp;
 
+  lastSubmittedDir = selectedDir;
   const res = C.tryMove(G, selectedDir, reason);
   // 로그에 예측 이유 반영
   if (res.ok) {
@@ -608,11 +821,34 @@ function submitMove() {
     const lastFail = G.log[G.log.length - 1];
     if (lastFail && lastFail.type === 'fail') lastFail.reason = reason;
   }
-  showFeedback(res.evaluation);
+  lastNote = res.evaluation.note || null;
+
+  // 예측 이유 AI 채점 (비동기 — 결과 먼저 표시 후 채점 갱신)
+  showFeedback(res.evaluation, null);
   document.getElementById('inpReason').value = '';
   updateReasonCount();
   selectedDir = null;
   document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
+
+  const ctx = {
+    scenarioLabel: C.SCENARIOS[G.scenario].label,
+    dir: lastSubmittedDir,
+    dirLabel: dirLabel(lastSubmittedDir),
+    valid: res.evaluation.valid,
+    note: res.evaluation.note || '',
+  };
+  window.ReasonLLM.evaluateReason(reason, ctx).then(re => {
+    // 채점 결과를 최신 예측 기록에 저장
+    const lastPred = G.predictions[G.predictions.length - 1];
+    if (lastPred) {
+      lastPred.reasonScore = re.score;
+      lastPred.reasonVerdict = re.verdict;
+      lastPred.reasonComment = re.comment;
+    }
+    showFeedback(res.evaluation, re);
+    saveGame();
+  });
+
   saveGame(); render();
   if (G.status === 'won') openModal();
 }
@@ -684,16 +920,23 @@ function exportWorksheet() {
   let md = `# 기후 문명 학습지 — 남방진동이 한반도에 미치는 영향\n\n`;
   md += `| 항목 | 내용 |\n|---|---|\n`;
   md += `| 시작 지점 | ${G.startKey === 'A' ? 'A: 칠레 연안 (동태평양)' : 'B: 오스트레일리아 북동쪽 (서태평양)'} |\n`;
-  md += `| 시나리오 | ${scenLabel} |\n`;
+  md += `| 시나리오 | ${scenLabel}${G.mode === 'custom' ? ' (직접입력 모드 — 관측 판별)' : ' (프리셋 모드)'} |\n`;
   md += `| 턴 수 | ${G.turn} |\n| 점수 | ${G.score} |\n`;
   md += `| 배지 | ${G.badges.length ? G.badges.join(', ') : '없음'} |\n\n`;
+  if (G.customObs) {
+    md += `## 0. 직접 입력한 관측 데이터\n\n`;
+    md += `| 대기압 | 해수면 수온 | 해수면 높이 이상 |\n|---|---|---|\n`;
+    md += `| ${G.customObs.pressure} hPa | ${G.customObs.sst} °C | ${G.customObs.ssh > 0 ? '+' : ''}${G.customObs.ssh} cm |\n\n`;
+    md += `**판별 근거**: ${G.customObs.evidence || '-'}\n\n`;
+  }
   md += `## 1. 나의 가설\n\n${G.hypotheses || '(기록 없음)'}\n\n`;
   md += `## 2. 예측 이유와 결과 (예측 기록)\n\n`;
-  md += `| 턴 | 예측 방향 | 나의 예측 이유 | 결과 | 과학 노트 |\n|---|---|---|---|---|\n`;
+  md += `| 턴 | 예측 방향 | 나의 예측 이유 | 결과 | 이유 채점 | 과학 노트 |\n|---|---|---|---|---|---|\n`;
   G.predictions.forEach(p => {
     const reason = (p.reason || '-').replace(/\|/g, '\\|').replace(/\n/g, ' ');
     const note = (p.note || (p.hint ? '힌트: ' + p.hint : '-')).replace(/\|/g, '\\|');
-    md += `| ${p.turn} | ${p.dirLabel}(${p.dir}) | ${reason} | ${p.valid ? '✅ 정답' : '❌ 오답'} | ${note} |\n`;
+    const rs = (p.reasonScore !== undefined && p.reasonScore !== null) ? `${p.reasonScore}/10 (${p.reasonVerdict === 'good' ? '우수' : p.reasonVerdict === 'partial' ? '부분' : '미흡'})` : '-';
+    md += `| ${p.turn} | ${p.dirLabel}(${p.dir}) | ${reason} | ${p.valid ? '✅ 정답' : '❌ 오답'} | ${rs} | ${note} |\n`;
   });
   md += `\n## 3. 이동 경로\n\n`;
   md += G.path.map((p, i) =>
@@ -715,7 +958,15 @@ function exportWorksheet() {
     md += `| 대기압 | ${fmt(i2.pressureAnomaly)} hPa | ${i2.pressureAnomaly > 0 ? '고기압성 경향' : '저기압성 경향'} |\n`;
     md += `| 기온 | ${fmt(i2.tempAnomaly)} °C | ${i2.tempAnomaly > 0 ? '평년보다 따뜻함' : '평년보다 쌀쌀함'} |\n`;
     md += `| 강수량 | ${i2.precipAnomaly > 0 ? '+' : ''}${i2.precipAnomaly}% | ${i2.precipAnomaly > 0 ? '평년보다 많음' : '평년보다 적음'} |\n\n`;
-    md += `## 6. 토론 — 모형의 한계\n\n`;
+    md += `## 6. AI 튜터와의 대화 기록\n\n`;
+    if (!chatHistory || chatHistory.length === 0) md += `(대화 기록 없음)\n\n`;
+    else {
+      chatHistory.forEach(m => {
+        md += m.role === 'user' ? `- **나**: ${m.content}\n` : `- **AI 튜터**: ${m.content.replace(/\n/g, ' ')}\n`;
+      });
+      md += `\n`;
+    }
+    md += `## 7. 토론 — 모형의 한계\n\n`;
     md += `시뮬레이션 결과가 실제 관측 데이터와 다른 부분과 그 이유를 작성하세요.\n\n(여기에 작성)\n`;
   } else {
     md += `> ⏳ 아직 한반도에 도달하지 않았습니다. 완성 후 한반도 영향 분석이 추가됩니다.\n`;

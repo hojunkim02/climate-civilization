@@ -160,8 +160,28 @@
     return ROUTES[startKey + ':' + scenarioKey] || null;
   }
 
+  // ===== 관측 데이터 기반 시나리오 판별 (직접입력 모드) =====
+  // 관측값을 점수화하여 엘니뇨/라니냬/불확실 판별. 판별 근거도 함께 반환.
+  function classifyFromObservation(pressure, sst, ssh) {
+    var evid = [];
+    var score = 0;
+    if (sst >= 28) { score += 1; evid.push('해수면 수온이 평년(26~27°C)보다 크게 높음(' + sst + '°C) → 동태평양 난수'); }
+    else if (sst <= 24) { score -= 1; evid.push('해수면 수온이 평년보다 낮음(' + sst + '°C) → 동태평양 냉수(용승)'); }
+    if (pressure <= 1008) { score += 1; evid.push('대기압이 낮음(' + pressure + 'hPa) → 대류 중심(저기압) 발달'); }
+    else if (pressure >= 1015) { score -= 1; evid.push('대기앑이 높음(' + pressure + 'hPa) → 하강 기류(고기압) 우세'); }
+    if (ssh >= 10) { score += 1; evid.push('해수면 높이 상승(+' + ssh + 'cm) → 동쪽 워터파일 상승'); }
+    else if (ssh <= -10) { score -= 1; evid.push('해수면 높이 하강(' + ssh + 'cm) → 열래 경사 강화'); }
+    var verdict = score >= 2 ? 'elnino' : score <= -2 ? 'lanina' : 'uncertain';
+    return {
+      verdict: verdict,
+      score: score,
+      evidence: evid.length ? evid.join(' · ') : '관측값이 평년 범위라 시나리오 판별이 어렵습니다',
+    };
+  }
+
   // ===== 게임 상태 =====
-  function newGame(startKey, scenarioKey) {
+  function newGame(startKey, scenarioKey, opts) {
+    opts = opts || {};
     if (!SCENARIOS[scenarioKey]) scenarioKey = 'elnino';
     var routeId = (startKey || 'A') + ':' + scenarioKey;
     var route = ROUTES[routeId];
@@ -171,6 +191,8 @@
       startKey: startKey,
       scenario: scenarioKey,
       routeId: routeId,
+      mode: opts.mode || 'preset', // 'preset' | 'custom'
+      customObs: opts.customObs || null,
       pos: { row: start.row, col: start.col },
       stepIndex: 0,
       failStreak: 0,
@@ -335,6 +357,7 @@
     LAND_TILES: LAND_TILES,
     ROUTES: ROUTES,
     lonOf: lonOf,
+    classifyFromObservation: classifyFromObservation,
     latOf: latOf,
     dirFromDelta: dirFromDelta,
     inBounds: inBounds,
