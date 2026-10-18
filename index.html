@@ -19,7 +19,7 @@
     --bad-bg: #fef3f2; --bad-bd: #f5c6c0; --bad-tx: #b3271e;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { font-size: 15px; }
+  html { font-size: 16.5px; }
   body {
     font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", "Inter", sans-serif;
     background: var(--bg);
@@ -347,12 +347,35 @@
 
     <div class="panel">
       <h2><span class="icon">💾</span> 기록</h2>
-      <button class="btn secondary" onclick="exportWorksheet()">📄 학습지 내보내기 (.md)</button>
-      <button class="btn secondary" onclick="downloadSave()">💾 세이브 파일 저장</button>
+      <button class="btn secondary" onclick="previewWorksheet()">👁 학습지 미리보기</button>
+      
       <button class="btn secondary" onclick="resetGame()">🔄 새로 시작</button>
     </div>
   </div>
 </main>
+
+<!-- 학습지 미리보기 모달 -->
+<div id="wsModal" style="position:fixed;inset:0;background:rgba(20,28,40,.4);display:none;align-items:center;justify-content:center;z-index:75;backdrop-filter:blur(3px);padding:24px;">
+  <div class="modal-card" style="max-width:820px;width:100%;max-height:88vh;display:flex;flex-direction:column;">
+    <h2>👁 학습지 미리보기</h2>
+    <div id="wsContent" style="overflow-y:auto;flex:1;padding:4px 8px;font-size:.86rem;line-height:1.65;"></div>
+    <div style="display:flex;gap:8px;margin-top:14px;">
+      <button class="btn primary" style="flex:1;" onclick="downloadPDF()">📄 PDF로 다운로드</button>
+      <button class="btn secondary" onclick="closeWsModal()">닫기</button>
+    </div>
+  </div>
+</div>
+<style>
+  #wsContent h2 { font-size: 1.05rem; color: #4f46e5; margin: 14px 0 6px; }
+  #wsContent h3 { font-size: .95rem; margin: 12px 0 4px; }
+  #wsContent .ws-table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+  #wsContent .ws-table th, #wsContent .ws-table td { border: 1px solid #ccd4de; padding: 5px 8px; font-size: .78rem; text-align: left; }
+  #wsContent .ws-table th { background: #eef0fb; }
+  #wsContent .ws-quote { background: #f4f6f8; border-radius: 8px; padding: 8px 12px; color: #5b6b7f; margin: 6px 0; }
+  #wsContent ul { padding-left: 20px; margin: 4px 0; }
+  #wsContent li { margin: 3px 0; font-size: .82rem; }
+  #wsContent p { margin: 4px 0; }
+</style>
 
 <!-- AI 설정 모달 -->
 <div id="settingsModal" style="position:fixed;inset:0;background:rgba(20,28,40,.4);display:none;align-items:center;justify-content:center;z-index:70;backdrop-filter:blur(3px);">
@@ -388,7 +411,7 @@
     <table class="impact-table" id="impactTable"></table>
     <p style="font-size:.76rem; color:var(--sub);">학습지를 내보내 예측 이유와 결과를 정리하고, 실제 관측 데이터와 다른 부분(모형의 한계)을 토론해 보세요.</p>
     <button class="btn primary" style="margin-top:12px;" onclick="closeModal()">확인</button>
-    <button class="btn secondary" onclick="closeModal(); exportWorksheet();">📄 학습지 바로 내보내기</button>
+    <button class="btn secondary" onclick="closeModal(); previewWorksheet();">👁 학습지 미리보기</button>
   </div>
 </div>
 
@@ -483,6 +506,12 @@ function buildStartButtons() {
     btn.onclick = () => chooseScenario(key);
     box.appendChild(btn);
   }
+  const so = document.createElement('button');
+  so.className = 'scenario-btn';
+  so.style.borderColor = '#d4a017';
+  so.innerHTML = '🌊 남방진동 확인 모드 <small style="display:block;font-weight:400;font-size:.7rem;color:#8a7616;">칠레 연안 → 코랄해 · 태평양 기압 시소 탐사</small>';
+  so.onclick = () => chooseScenario('SO');
+  box.appendChild(so);
 }
 
 function setStartMode(mode) {
@@ -517,6 +546,32 @@ function chooseScenario(startKey) {
   chosenStart = startKey;
   const box = document.getElementById('startBtns');
   box.innerHTML = '';
+
+  if (startKey === 'SO') {
+    // 남방진동 확인 모드: 칠레 고정, 시나리오만 선택
+    const p = document.createElement('p');
+    p.style.cssText = 'font-size:.8rem;color:#8a7616;font-weight:700;margin:10px 0 4px;';
+    p.textContent = '🌊 남방진동 확인 모드 — 칠레 연안에서 코랄해까지 태평양을 횡단하며 두 지역의 기압 시소(남방진동)를 확인합니다.';
+    box.appendChild(p);
+    const wrap = document.createElement('div');
+    wrap.className = 'scenario-btns';
+    for (const sc of ['elnino', 'lanina']) {
+      const btn = document.createElement('button');
+      btn.className = 'scenario-btn';
+      btn.innerHTML = sc === 'elnino' ? '🔥 엘니뇨 상황' : '❄️ 라니냐 상황';
+      btn.onclick = () => startGame('SO', sc, { goal: 'coralsea' });
+      wrap.appendChild(btn);
+    }
+    box.appendChild(wrap);
+    document.getElementById('modeTabs').style.display = 'none';
+    document.getElementById('customObsBox').style.display = 'none';
+    // customObsBox에 이전에 추가된 시작 버튼 제거
+    const cob = document.getElementById('customObsBox');
+    const oldBtn = cob.querySelector('.btn');
+    if (oldBtn) oldBtn.remove();
+    return;
+  }
+
   document.getElementById('modeTabs').style.display = 'flex';
 
   const p = document.createElement('p');
@@ -643,6 +698,21 @@ function render() {
     t.textContent = ARROW[dir.key];
     ov.appendChild(t);
   }
+
+  // 기압 상승/하강에 따른 블럭 색상 변화 (6번)
+  const blocks = document.querySelectorAll('.block');
+  blocks.forEach(b => { b.style.background = ''; b.style.borderColor = ''; });
+  G.pressureMarks.forEach(m => {
+    const bx = (lonLatToXY(C.lonOf(m.col), C.latOf(m.row)).x / 1440 * 100).toFixed(4) + '%';
+    const by = (lonLatToXY(C.lonOf(m.col), C.latOf(m.row)).y / 720 * 100).toFixed(4) + '%';
+    blocks.forEach(b => {
+      if (Math.abs(parseFloat(b.style.left) - parseFloat(bx)) < 0.1 &&
+          Math.abs(parseFloat(b.style.top) - parseFloat(by)) < 0.1) {
+        if (m.color === 'red') { b.style.background = 'rgba(220,60,40,.35)'; b.style.borderColor = '#c0281a'; }
+        else if (m.color === 'blue') { b.style.background = 'rgba(50,110,230,.35)'; b.style.borderColor = '#1c4fb0'; }
+      }
+    });
+  });
 
   // 기압 원 (블럭 위 배지 스타일)
   G.pressureMarks.forEach(m => {
@@ -932,23 +1002,16 @@ function resetGame() {
   document.getElementById('hudBadges').innerHTML = '';
   document.getElementById('log').innerHTML = '';
 }
-function downloadSave() {
-  if (!G) { alert('저장할 진행 기록이 없습니다.'); return; }
-  const blob = new Blob([JSON.stringify(G, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'climate-civ-save.json';
-  a.click(); URL.revokeObjectURL(a.href);
-}
 
-// ===== 학습지: 예측 이유 + 결과 통합 =====
-function exportWorksheet() {
-  if (!G) { alert('진행 기록이 없습니다.'); return; }
+// ===== 학습지: 마크다운 생성 + 미리보기 + PDF =====
+function buildWorksheetMD() {
+  if (!G) { alert('진행 기록이 없습니다.'); return null; }
   const scenLabel = C.SCENARIOS[G.scenario].label;
   let md = `# 기후 시뮬레이션 학습지 — 남방진동이 한반도에 미치는 영향\n\n`;
   md += `| 항목 | 내용 |\n|---|---|\n`;
-  md += `| 시작 지점 | ${G.startKey === 'A' ? 'A: 칠레 연안 (동태평양)' : 'B: 오스트레일리아 북동쪽 (서태평양)'} |\n`;
+  md += `| 시작 지점 | ${G.startKey === 'A' ? 'A: 칠레 연안 (동태평양)' : G.startKey === 'SO' ? '남방진동 확인 모드 (칠레 연안 → 코랄해)' : 'B: 오스트레일리아 북동쪽 (서태평양)'} |\n`;
   md += `| 시나리오 | ${scenLabel}${G.mode === 'custom' ? ' (직접입력 모드 — 관측 판별)' : ' (프리셋 모드)'} |\n`;
+  md += `| 목표 | ${G.goal === 'coralsea' ? '코랄해 도달 (남방진동 확인)' : '한반도 도달'} |\n`;
   md += `| 턴 수 | ${G.turn} |\n| 점수 | ${G.score} |\n`;
   md += `| 배지 | ${G.badges.length ? G.badges.join(', ') : '없음'} |\n\n`;
   if (G.customObs) {
@@ -981,7 +1044,10 @@ function exportWorksheet() {
   }
   if (G.finalImpact) {
     const i2 = G.finalImpact;
-    md += `## 5. 한반도 영향 분석 (${i2.scenarioLabel})\n\n`;
+    md += `## 5. ${G.goal === 'coralsea' ? '남방진동 확인 결과' : '한반도 영향 분석'} (${i2.scenarioLabel})\n\n`;
+    if (G.goal === 'coralsea') {
+      md += `칠레 연안(동태평양)과 코랄해(서태평양)의 기압이 시소처럼 반대로 움직이는 남방진동을 확인했습니다.\n\n`;
+    }
     md += `| 항목 | 평년 대비 변화 | 해석 |\n|---|---|---|\n`;
     md += `| 대기압 | ${fmt(i2.pressureAnomaly)} hPa | ${i2.pressureAnomaly > 0 ? '고기압성 경향' : '저기압성 경향'} |\n`;
     md += `| 기온 | ${fmt(i2.tempAnomaly)} °C | ${i2.tempAnomaly > 0 ? '평년보다 따뜻함' : '평년보다 쌀쌀함'} |\n`;
@@ -997,14 +1063,84 @@ function exportWorksheet() {
     md += `## 7. 토론 — 모형의 한계\n\n`;
     md += `시뮬레이션 결과가 실제 관측 데이터와 다른 부분과 그 이유를 작성하세요.\n\n(여기에 작성)\n`;
   } else {
-    md += `> ⏳ 아직 한반도에 도달하지 않았습니다. 완성 후 한반도 영향 분석이 추가됩니다.\n`;
+    md += `> ⏳ 아직 목표 지점에 도달하지 않았습니다. 완성 후 결과 분석이 추가됩니다.\n`;
   }
-  const blob = new Blob([md], { type: 'text/markdown' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = '기후시뮬레이션_학습지.md';
-  a.click(); URL.revokeObjectURL(a.href);
+  return md;
 }
+
+// 간단한 마크다운 → HTML 변환 (표/제목/목록/굵게 지원)
+function mdToHtml(md) {
+  const esc2 = (t) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const lines = md.split('\n');
+  let html = '';
+  let inTable = false;
+  let listOpen = false;
+  const closeList = () => { if (listOpen) { html += '</ul>'; listOpen = false; } };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\|/.test(line)) {
+      if (i + 1 < lines.length && /^\|[\s:-]+\|/.test(lines[i + 1])) {
+        if (!inTable) { closeList(); html += '<table class="ws-table">'; inTable = true; }
+        const cells = line.split('|').slice(1, -1);
+        html += '<tr>' + cells.map(c => '<th>' + c.trim() + '</th>').join('') + '</tr>';
+        i++; continue;
+      } else if (inTable) {
+        const cells = line.split('|').slice(1, -1);
+        html += '<tr>' + cells.map(c => '<td>' + c.trim() + '</td>').join('') + '</tr>';
+        continue;
+      }
+    } else if (inTable) { html += '</table>'; inTable = false; }
+    if (/^##\s/.test(line)) { closeList(); html += '<h3>' + esc2(line.replace(/^##\s/, '')) + '</h3>'; continue; }
+    if (/^#\s/.test(line)) { closeList(); html += '<h2>' + esc2(line.replace(/^#\s/, '')) + '</h2>'; continue; }
+    if (/^>\s?/.test(line)) { closeList(); html += '<p class="ws-quote">' + esc2(line.replace(/^>\s?/, '')) + '</p>'; continue; }
+    if (/^-\s/.test(line)) { if (!listOpen) { html += '<ul>'; listOpen = true; } html += '<li>' + esc2(line.replace(/^-\s/, '')) + '</li>'; continue; }
+    closeList();
+    if (line.trim() === '') { html += ''; continue; }
+    html += '<p>' + esc2(line).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') + '</p>';
+  }
+  closeList();
+  if (inTable) html += '</table>';
+  return html;
+}
+
+function previewWorksheet() {
+  const md = buildWorksheetMD();
+  if (md === null) return;
+  const modal = document.getElementById('wsModal');
+  document.getElementById('wsContent').innerHTML = mdToHtml(md);
+  modal.style.display = 'flex';
+  window.__wsMD = md;
+}
+function closeWsModal() { document.getElementById('wsModal').style.display = 'none'; }
+
+function downloadPDF() {
+  const md = window.__wsMD || buildWorksheetMD();
+  if (!md) return;
+  const w = window.open('', '_blank');
+  if (!w) { alert('팝업이 차단되었습니다. 팝업을 허용한 뒤 다시 시도하세요.'); return; }
+  const body = mdToHtml(md);
+  w.document.write(`<!DOCTYPE html><html lang="ko"><head><meta charset="UTF-8"><title>기후 시뮬레이션 학습지</title>
+<style>
+  body { font-family: "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; color: #1a2332; padding: 24px; max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; border-bottom: 2px solid #4f46e5; padding-bottom: 8px; }
+  h2 { font-size: 1.05rem; margin-top: 22px; color: #4f46e5; }
+  h3 { font-size: .95rem; margin-top: 16px; }
+  .ws-table { border-collapse: collapse; width: 100%; margin: 10px 0; }
+  .ws-table th, .ws-table td { border: 1px solid #ccd4de; padding: 6px 9px; font-size: .8rem; text-align: left; }
+  .ws-table th { background: #eef0fb; }
+  .ws-quote { background: #f4f6f8; border-radius: 8px; padding: 8px 12px; color: #5b6b7f; }
+  ul { padding-left: 20px; } li { margin: 3px 0; font-size: .86rem; }
+  p { font-size: .86rem; line-height: 1.6; }
+  @media print { body { padding: 0; } }
+</style></head><body>${body}
+<script>window.onload = () => { setTimeout(() => window.print(), 300); };<\/script></body></html>`);
+  w.document.close();
+}
+
+// 지도 빈 공간 클릭 시 지역 카드 닫기
+document.getElementById('mapWrap').addEventListener('click', (e) => {
+  if (!e.target.closest('.block') && !e.target.closest('#regionCard')) hideRegionCard();
+});
 
 // ===== 초기화 =====
 buildClickDots();

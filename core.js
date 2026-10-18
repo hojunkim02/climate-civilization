@@ -166,6 +166,33 @@
         '강화된 시베리아 고기압의 영향으로 한반도에 찬 북풍이 유입됩니다.',
       ],
     },
+    // ===== 남방진동 확인 모드: 칠레 연안 → 코랄해 (태평양 횡단) =====
+    'SO:elnino': {
+      waypoints: [[3, 1], [2, 1], [1, 1], [1, 2], [1, 3], [1, 4], [2, 4], [2, 5]],
+      notes: [
+        '엘니뇨 시 칠레 연안의 찬 용승류가 약해지고 해수면 온도가 상승합니다.',
+        '적도 동태평양에 난수가 발달하며, 대류 중심이 동쪽으로 이동합니다.',
+        '워커 순환이 약화되면서 상승 기류가 동쪽으로 이동합니다.',
+        '대기가 중태평양을 지나 계속 서쪽으로 전파됩니다.',
+        '약화된 워커 순환의 영향이 인도네시아 해역까지 미칩니다.',
+        '인도네시아 해역의 대류는 약해지고, 해수면 온도는 평년보다 낮아집니다.',
+        '코랄해 주변 해수면 온도가 낮아져, 남방진동 지수(SOI)가 음의 값을 나타냅니다.',
+        '코랄해 관측으로 확인: 칠레 연안과의 기압차(타히티-다윈 기압차)가 평년보다 작습니다 — 남방진동(엘니뇨) 확인!',
+      ],
+    },
+    'SO:lanina': {
+      waypoints: [[3, 1], [2, 1], [1, 1], [1, 2], [1, 3], [1, 4], [2, 4], [2, 5]],
+      notes: [
+        '라니냐 시 칠레 연안의 찬 용승류가 강해지고 해수면 온도가 하강합니다.',
+        '적도 동태평양 냉수로 대류가 억제되고, 하강 기류가 강해집니다.',
+        '강화된 무역풍을 따라 대기가 서쪽으로 이동합니다(라니냐 순환).',
+        '강한 무역풍이 중태평양의 따뜻한 물을 서쪽으로 밀어냅니다.',
+        '대기 수렴이 인도네시아 해역으로 집중됩니다.',
+        '인도네시아 해역의 대류가 강해지고, 해수면 온도는 평년보다 높아집니다.',
+        '코랄해 주변 해수면 온도가 높아지고 기압이 낮아져, 남방진동 지수(SOI)가 양의 값을 나타냅니다.',
+        '코랄해 관측으로 확인: 칠레 연안과의 기압차(타히티-다윈 기압차)가 평년보다 큽니다 — 남방진동(라니냐) 확인!',
+      ],
+    },
   };
 
   function routeFor(startKey, scenarioKey) {
@@ -192,15 +219,24 @@
   }
 
   // ===== 게임 상태 =====
+  var CORAL_SEA = { row: 2, col: 5 };
+  function reachedGoal(state, pos) {
+    if (state.goal === 'coralsea') return pos.row === CORAL_SEA.row && pos.col === CORAL_SEA.col;
+    return pos.row === KOREA.row && pos.col === KOREA.col;
+  }
+
   function newGame(startKey, scenarioKey, opts) {
     opts = opts || {};
     if (!SCENARIOS[scenarioKey]) scenarioKey = 'elnino';
+    var goal = opts.goal === 'coralsea' ? 'coralsea' : 'korea';
+    if (goal === 'coralsea') startKey = 'SO';
     var routeId = (startKey || 'A') + ':' + scenarioKey;
     var route = ROUTES[routeId];
-    var start = START_POINTS[startKey] || START_POINTS.A;
+    var start = goal === 'coralsea' ? START_POINTS.A : (START_POINTS[startKey] || START_POINTS.A);
     if (!route) { startKey = 'A'; routeId = 'A:' + scenarioKey; }
     return {
       startKey: startKey,
+      goal: goal,
       scenario: scenarioKey,
       routeId: routeId,
       mode: opts.mode || 'preset', // 'preset' | 'custom'
@@ -331,13 +367,20 @@
       scenario: state.scenario,
     });
 
-    if (reachedKorea(target)) {
+    if (reachedGoal(state, target)) {
       state.status = 'won';
       state.score += 50;
-      state.badges.push('한반도 도달');
-      if (state.failures.length === 0) state.badges.push('무실패 예측');
-      state.finalImpact = finalImpact(state);
-      state.log.push({ type: 'win', msg: '한반도 도달! 남방진동의 영향을 확인했습니다.' });
+      if (state.goal === 'coralsea') {
+        state.badges.push('남방진동 확인');
+        if (state.failures.length === 0) state.badges.push('무실패 예측');
+        state.finalImpact = finalImpact(state);
+        state.log.push({ type: 'win', msg: '코랄해 도달! 칠레 연안~코랄해의 남방진동(기압 시소)을 확인했습니다.' });
+      } else {
+        state.badges.push('한반도 도달');
+        if (state.failures.length === 0) state.badges.push('무실패 예측');
+        state.finalImpact = finalImpact(state);
+        state.log.push({ type: 'win', msg: '한반도 도달! 남방진동의 영향을 확인했습니다.' });
+      }
     } else if (state.turn >= 25) {
       if (state.badges.indexOf('탐구왕') === -1) state.badges.push('탐구왕');
     }
@@ -379,6 +422,8 @@
     expectedDelta: expectedDelta,
     evaluateDir: evaluateDir,
     tryMove: tryMove,
+    reachedGoal: reachedGoal,
+    CORAL_SEA: CORAL_SEA,
     forecastAt: forecastAt,
     finalImpact: finalImpact,
     reachedKorea: reachedKorea,
