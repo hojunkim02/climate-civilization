@@ -94,7 +94,7 @@ const ocean = C.regionInfo(1, 1, 'elnino');
 assert.strictEqual(ocean.land, false);
 assert.strictEqual(ocean.sst > 0, true);
 assert.ok(ocean.obsText.includes('해수면 온도'));
-// 엘니뇨 vs 라니냬 SST 편차 부호 반전
+// 엘니뇨 vs 라니냐 SST 편차 부호 반전
 const oceanL = C.regionInfo(1, 1, 'lanina');
 assert.strictEqual(ocean.sst > oceanL.sst, true);
 

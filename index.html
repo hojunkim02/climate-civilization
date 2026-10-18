@@ -303,13 +303,13 @@
   <!-- ===== 오른쪽 ===== -->
   <div class="right-col">
     <div class="panel">
-      <h2><span class="icon">📋</span> 관측 데이터</h2>
+      <h2><span class="icon">📋</span> <span id="obsPanelTitle">관측 데이터</span></h2>
       <div class="form-grid">
-        <div class="form-row">
+        <div class="form-row" id="rowPressure">
           <label>대기압 (hPa)</label>
           <input type="number" id="inpPressure" min="995" max="1025" value="1013" step="0.5">
         </div>
-        <div class="form-row">
+        <div class="form-row" id="rowSst">
           <label>해수면 수온 (°C)</label>
           <input type="number" id="inpSst" min="10" max="32" value="26" step="0.1">
         </div>
@@ -358,10 +358,10 @@
 <div id="settingsModal" style="position:fixed;inset:0;background:rgba(20,28,40,.4);display:none;align-items:center;justify-content:center;z-index:70;backdrop-filter:blur(3px);">
   <div class="modal-card" style="max-width:480px;">
     <h2>⚙️ AI 평가 설정</h2>
-    <p style="font-size:.76rem;color:var(--sub);line-height:1.6;">OpenAI 호환 API 키를 입력하면 예측 이유의 과학적 타당성을 LLM이 채점하고, 챗봇도 더 정확해집니다. 키가 없으면 오프라인 규칙 기반 평가로 동작합니다. 키는 이 브라우저에만 저장됩니다.</p>
+    <p style="font-size:.76rem;color:var(--sub);line-height:1.6;">Mistral/OpenAI 호환 API 키를 입력하면 예측 이유의 과학적 타당성을 LLM이 채점하고, 챗봇도 더 정확해집니다. 키가 없으면 오프라인 규칙 기반 평가로 동작합니다. 키는 이 브라우저에만 저장됩니다.</p>
     <div class="settings-grid">
-      <div><label>Base URL</label><input type="text" id="setBaseUrl" placeholder="https://api.openai.com/v1"></div>
-      <div><label>Model</label><input type="text" id="setModel" placeholder="gpt-4o-mini"></div>
+      <div><label>Base URL</label><input type="text" id="setBaseUrl" placeholder="https://api.mistral.ai/v1"></div>
+      <div><label>Model</label><input type="text" id="setModel" placeholder="mistral-medium-3-5"></div>
       <div><label>API Key</label><input type="password" id="setApiKey" placeholder="sk-..."></div>
     </div>
     <div style="display:flex;gap:8px;">
@@ -437,7 +437,9 @@ function showRegionCard(row, col, e) {
   document.getElementById('rcName').textContent = (info.land ? '🌿 ' : '🌊 ') + info.name;
   document.getElementById('rcCoords').textContent =
     fmtLat(info.lat) + ', ' + fmtLon(info.lon) + ' · [' + info.scenarioLabel + ' 상황]';
-  document.getElementById('rcObs').textContent = info.obsText;
+  const obsEl = document.getElementById('rcObs');
+  obsEl.style.whiteSpace = 'pre-line';
+  obsEl.textContent = info.obsText;
 
   const wrap = document.getElementById('mapWrap');
   const wr = wrap.getBoundingClientRect();
@@ -496,9 +498,9 @@ function updateCustomVerdict() {
   const v = document.getElementById('customVerdict');
   if (customVerdict.verdict === 'uncertain') {
     v.innerHTML = '🤔 <b>판별 불확실</b> — ' + customVerdict.evidence +
-      '<br>엘니뇨/라니냬 신호가 뚜렷하지 않습니다. 수치를 조정해 보세요.';
+      '<br>엘니뇨/라니냐 신호가 뚜렷하지 않습니다. 수치를 조정해 보세요.';
   } else {
-    const label = customVerdict.verdict === 'elnino' ? '🔥 엘니뇨' : '❄️ 라니냬';
+    const label = customVerdict.verdict === 'elnino' ? '🔥 엘니뇨' : '❄️ 라니냐';
     v.innerHTML = '판별 결과: <b>' + label + '</b> 상황<br>근거: ' + customVerdict.evidence;
   }
 }
@@ -521,7 +523,7 @@ function chooseScenario(startKey) {
   for (const sc of ['elnino', 'lanina']) {
     const btn = document.createElement('button');
     btn.className = 'scenario-btn';
-    btn.innerHTML = sc === 'elnino' ? '🔥 엘니뇨 상황' : '❄️ 라니냬 상황';
+    btn.innerHTML = sc === 'elnino' ? '🔥 엘니뇨 상황' : '❄️ 라니냐 상황';
     btn.title = C.SCENARIOS[sc].desc;
     btn.onclick = () => startGame(startKey, sc, { mode: 'preset' });
     presetWrap.appendChild(btn);
@@ -535,7 +537,7 @@ function chooseScenario(startKey) {
   startCustom.textContent = '관측값으로 게임 시작 →';
   startCustom.onclick = () => {
     if (!customVerdict || customVerdict.verdict === 'uncertain') {
-      alert('관측 데이터로 시나리오를 판별할 수 없습니다.\n수치를 조정해 엘니뇨 또는 라니냬 신호를 만들어 주세요.\n\n근거: ' + (customVerdict ? customVerdict.evidence : '입력값 확인 필요'));
+      alert('관측 데이터로 시나리오를 판별할 수 없습니다.\n수치를 조정해 엘니뇨 또는 라니냐 신호를 만들어 주세요.\n\n근거: ' + (customVerdict ? customVerdict.evidence : '입력값 확인 필요'));
       return;
     }
     startGame(startKey, customVerdict.verdict, {
@@ -561,8 +563,19 @@ function startGame(startKey, scenarioKey, opts) {
   document.getElementById('startOverlay').classList.add('hidden');
   const modeText = G.mode === 'custom' ? ' (관측 판별)' : '';
   document.getElementById('inpScenario').value = C.SCENARIOS[scenarioKey].label + ' 상황' + modeText;
-  document.getElementById('inpPressure').value = G.customObs ? G.customObs.pressure : document.getElementById('inpPressure').value;
-  document.getElementById('inpSst').value = G.customObs ? G.customObs.sst : document.getElementById('inpSst').value;
+  // 모드별 관측 데이터 섹션 구성
+  const spName = startKey === 'A' ? '칠레 연안' : '호주 북동쪽';
+  if (G.mode === 'custom') {
+    document.getElementById('obsPanelTitle').textContent = spName + '의 관측 데이터';
+    document.getElementById('rowPressure').style.display = '';
+    document.getElementById('rowSst').style.display = '';
+    document.getElementById('inpPressure').value = G.customObs.pressure;
+    document.getElementById('inpSst').value = G.customObs.sst;
+  } else {
+    document.getElementById('obsPanelTitle').textContent = '관측 데이터';
+    document.getElementById('rowPressure').style.display = 'none';
+    document.getElementById('rowSst').style.display = 'none';
+  }
   document.getElementById('inpReason').value = '';
   updateReasonCount();
   hideRegionCard();
@@ -782,8 +795,8 @@ function closeSettings() {
 }
 function saveSettingsFromUI() {
   const s = {
-    baseUrl: document.getElementById('setBaseUrl').value.trim() || 'https://api.openai.com/v1',
-    model: document.getElementById('setModel').value.trim() || 'gpt-4o-mini',
+    baseUrl: document.getElementById('setBaseUrl').value.trim() || 'https://api.mistral.ai/v1',
+    model: document.getElementById('setModel').value.trim() || 'mistral-medium-3-5',
     apiKey: document.getElementById('setApiKey').value.trim(),
   };
   window.ReasonLLM.saveSettings(s);
@@ -860,7 +873,7 @@ function openModal() {
     `당신의 화살표가 한반도에 도달했습니다. 이번 시뮬레이션은 <b>${scenLabel}</b> 상황이었습니다.<br>` +
     (imp.scenario === 'elnino'
       ? '엘니뇨 시 동태평양 수온 상승으로 대류 중심이 동쪽으로 이동하고, 원격 상관(teleconnection)을 통해 한반도 겨울 날씨(기온 상승 경향)에 영향을 줍니다.'
-      : '라니냬 시 서태평양 대류가 강화되고, 원격 상관을 통해 한반도 겨울 기온이 평년보다 낮아질 수 있습니다.');
+      : '라니냐 시 서태평양 대류가 강화되고, 원격 상관을 통해 한반도 겨울 기온이 평년보다 낮아질 수 있습니다.');
   const tbl = document.getElementById('impactTable');
   tbl.innerHTML = `<tr><th>항목</th><th>평년 대비 변화</th><th>해석</th></tr>
     <tr><td>대기압</td><td class="${imp.pressureAnomaly > 0 ? 'up' : 'down'}">${fmt(imp.pressureAnomaly)} hPa</td><td>${imp.pressureAnomaly > 0 ? '고기압성 경향' : '저기압성 경향'}</td></tr>
