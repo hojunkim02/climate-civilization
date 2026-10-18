@@ -2,120 +2,129 @@
 const assert = require('assert');
 const C = require('../core.js');
 
-// --- classifyObservation ---
-assert.strictEqual(C.classifyObservation({ pressure: 1005, sst: 29, ssh: 15 }), 'elnino');
-assert.strictEqual(C.classifyObservation({ pressure: 1018, sst: 23, ssh: -15 }), 'lanina');
-assert.strictEqual(C.classifyObservation({ pressure: 1013, sst: 26, ssh: 0 }), 'neutral');
+// --- 좌표 헬퍼 ---
+assert.strictEqual(C.latOf(0), 45);
+assert.strictEqual(C.latOf(3), -45);
+assert.strictEqual(C.lonOf(5), 130);
+assert.deepStrictEqual(C.KOREA, { row: 0, col: 5 });
 
-// --- evaluateArrow: 엘니뇨 데이터로 동쪽 이동은 타당, 서쪽은 실패 ---
-const elninoObs = { pressure: 1005, sst: 29, ssh: 15 };
-assert.strictEqual(C.evaluateArrow(elninoObs, 'E').valid, true);
-assert.strictEqual(C.evaluateArrow(elninoObs, 'W').valid, false);
-assert.strictEqual(C.evaluateArrow(elninoObs, 'W').feedback.title, '방향이 반대입니다');
+// --- 라우트 존재 확인: 시작 2종 × 시나리오 2종 ---
+for (const sk of ['A', 'B']) {
+  for (const sc of ['elnino', 'lanina']) {
+    const r = C.routeFor(sk, sc);
+    assert.ok(r, `route missing: ${sk}:${sc}`);
+    assert.ok(r.waypoints.length >= 4, `${sk}:${sc} waypoints too short`);
+    const last = r.waypoints[r.waypoints.length - 1];
+    assert.deepStrictEqual(last, [C.KOREA.row, C.KOREA.col], `${sk}:${sc} route must end at Korea`);
+    const first = r.waypoints[0];
+    const sp = C.START_POINTS[sk];
+    assert.deepStrictEqual(first, [sp.row, sp.col], `${sk}:${sc} route must start at start point`);
+    // 인접 이동 검증
+    for (let i = 1; i < r.waypoints.length; i++) {
+      const [fr, fc] = r.waypoints[i - 1];
+      const [tr, tc] = r.waypoints[i];
+      const dist = Math.max(Math.abs(tr - fr), Math.abs(tc - fc));
+      assert.strictEqual(dist, 1, `${sk}:${sc} non-adjacent step at ${i}`);
+    }
+    // 노트 개수 = 이동 단계 수
+    assert.strictEqual(r.notes.length, r.waypoints.length - 1, `${sk}:${sc} notes mismatch`);
+  }
+}
 
-// --- evaluateArrow: 라니냬 데이터로 서쪽 이동은 타당 ---
-const laninaObs = { pressure: 1018, sst: 23, ssh: -15 };
-assert.strictEqual(C.evaluateArrow(laninaObs, 'W').valid, true);
-assert.strictEqual(C.evaluateArrow(laninaObs, 'SW').valid, true);
-assert.strictEqual(C.evaluateArrow(laninaObs, 'E').valid, false);
-
-// --- evaluateArrow: 중립 데이터로 북쪽 계열 타당 ---
-const neutralObs = { pressure: 1013, sst: 26, ssh: 0 };
-assert.strictEqual(C.evaluateArrow(neutralObs, 'N').valid, true);
-assert.strictEqual(C.evaluateArrow(neutralObs, 'NE').valid, true);
-assert.strictEqual(C.evaluateArrow(neutralObs, 'E').valid, false);
-
-// --- 무효 방향 키 ---
-assert.strictEqual(C.evaluateArrow(elninoObs, 'XX').valid, false);
-assert.strictEqual(C.evaluateArrow(elninoObs, 'XX').reason, 'invalid_dir');
-
-// --- tryMove: 게임 상태 전이 ---
-let G = C.newGame('A');
-assert.deepStrictEqual(G.pos, { row: 4, col: 1 });
+// --- 게임: A + 엘니뇨 전체 경로 진행 ---
+let G = C.newGame('A', 'elnino');
 assert.strictEqual(G.status, 'playing');
-
-// 라니냬 데이터로 서쪽 이동 → 성공
-let res = C.tryMove(G, laninaObs, 'W');
-assert.ok(res.ok);
-assert.deepStrictEqual(G.pos, { row: 4, col: 0 });
-assert.strictEqual(G.turn, 1);
-assert.strictEqual(G.score, 10);
-assert.strictEqual(G.path.length, 2);
-assert.strictEqual(G.pressureMarks.length, 1);
-assert.strictEqual(G.pressureMarks[0].color, 'blue'); // 라니냬 pressure -1
-
-// 틀린 방향 → 실패, 위치 유지, 실패 기록
-res = C.tryMove(G, laninaObs, 'E');
-assert.ok(!res.ok);
-assert.strictEqual(res.error, 'invalid_move');
-assert.deepStrictEqual(G.pos, { row: 4, col: 0 });
-assert.strictEqual(G.failures.length, 1);
-assert.strictEqual(G.score, 9);
-
-// 경계 밖 이동
-res = C.tryMove(G, laninaObs, 'W');
-assert.ok(!res.ok);
-assert.strictEqual(res.error, 'out_of_bounds');
-
-// --- 전체 경로: 시작 A(4,1)에서 한국(1,8)까지 시나리오를 바꿔가며 진행 ---
-G = C.newGame('A');
-// 중립 관측 → N/NE/NW 타당. 경로: (4,1) NE→(3,2) NE→(2,3) NE→(1,4) ...
-// (1,4) 이후는 관측을 엘니뇨로 바꾸면 E/NE/SE 타당 → 동쪽으로 진행해 한국(1,8) 도달.
-const plan = [
-  { obs: neutralObs, dir: 'NE' }, // (3,2)
-  { obs: neutralObs, dir: 'NE' }, // (2,3)
-  { obs: neutralObs, dir: 'NE' }, // (1,4)
-  { obs: elninoObs, dir: 'E'  },  // (1,5)
-  { obs: elninoObs, dir: 'E'  },  // (1,6)
-  { obs: elninoObs, dir: 'E'  },  // (1,7)
-  { obs: elninoObs, dir: 'E'  },  // (1,8) = KOREA
-];
-let last;
-for (const step of plan) {
-  last = C.tryMove(G, step.obs, step.dir);
-  assert.ok(last.ok, 'step failed: ' + JSON.stringify(step));
+const route = C.ROUTES['A:elnino'];
+let okCount = 0;
+for (let i = 1; i < route.waypoints.length; i++) {
+  const [fr, fc] = route.waypoints[i - 1];
+  const [tr, tc] = route.waypoints[i];
+  const d = C.dirFromDelta(tr - fr, tc - fc);
+  const res = C.tryMove(G, d.key);
+  assert.ok(res.ok, `step ${i} (${d.key}) failed`);
+  okCount++;
 }
 assert.strictEqual(G.status, 'won');
 assert.ok(C.reachedKorea(G.pos));
-assert.strictEqual(G.score, 10 * 7 + 50);
+assert.strictEqual(G.failures.length, 0);
 assert.ok(G.badges.includes('한반도 도달'));
 assert.ok(G.badges.includes('무실패 예측'));
+assert.strictEqual(G.score, 10 * okCount + 50);
 assert.ok(G.finalImpact);
 
-// 게임 종료 후 이동 시도 불가
-res = C.tryMove(G, neutralObs, 'N');
-assert.ok(!res.ok);
-assert.strictEqual(res.error, 'game_over');
+// 종료 후 이동 불가
+const after = C.tryMove(G, 'N');
+assert.ok(!after.ok);
+assert.strictEqual(after.error, 'game_over');
 
-// --- forecastNextTile ---
-const f = C.forecastNextTile('elnino', 3, C.KOREA);
-assert.strictEqual(f.scenario, 'elnino');
-assert.strictEqual(f.pressureAnomaly > 0, true);
-assert.strictEqual(f.tempAnomaly > 0, true);
-assert.strictEqual(f.precipAnomaly < 0, true);
+// --- 오답 처리 및 힌트 ---
+G = C.newGame('A', 'elnino');
+// 첫 단계 예상: (3,1)→(2,1) = N. 틀린 방향 SE 시도 (S는 경계 밖)
+let bad = C.tryMove(G, 'E');
+assert.ok(!bad.ok);
+assert.strictEqual(bad.error, 'invalid_move');
+assert.strictEqual(G.failures.length, 1);
+assert.strictEqual(G.pos.row, 3); // 위치 유지
+assert.strictEqual(G.failStreak, 1);
+// 힌트는 failStreak >= 2부터
+bad = C.tryMove(G, 'W');
+assert.ok(!bad.ok);
+assert.strictEqual(G.failStreak, 2);
+bad = C.tryMove(G, 'E');
+assert.ok(!bad.ok);
+const lastFail = G.failures[G.failures.length - 1];
+assert.ok(lastFail.hint, 'hint should appear after 2 consecutive fails');
+// 맞으면 성공
+const good = C.tryMove(G, 'N');
+assert.ok(good.ok);
+assert.strictEqual(G.failStreak, 0);
 
-// --- 지도 헬퍼 ---
-assert.strictEqual(C.tileTypeAt(1, 8), 'korea');
-assert.strictEqual(C.tileTypeAt(4, 1), 'startA');
-assert.strictEqual(C.tileTypeAt(3, 5), 'startB');
-assert.strictEqual(C.tileTypeAt(1, 1), 'mountain');
-assert.strictEqual(C.tileTypeAt(0, 1), 'land');
-assert.strictEqual(C.tileTypeAt(2, 2), 'ocean');
+// --- 경계 밖 ---
+G = C.newGame('A', 'elnino');
+const oob = C.tryMove(G, 'SW'); // (3,1)→(4,0) out of bounds
+assert.ok(!oob.ok);
+assert.strictEqual(oob.error, 'out_of_bounds');
 
-// --- 경·위도 매핑 헬퍼 ---
-assert.strictEqual(C.lonOf(8), 127);
-assert.strictEqual(C.latOf(1), 39);
-assert.strictEqual(C.lonOf(1), -75);   // A 지점 = 칠레 연안 경도
-assert.strictEqual(C.latOf(4), -39);  // A 지점 = 칠레 연안 위도
-assert.strictEqual(C.lonOf(5), 140); // B 지점 = 호주 북동쪽 경도
-assert.strictEqual(C.latOf(3), -13);  // B 지점 위도
-assert.strictEqual(C.inBounds({ row: 0, col: 0 }), true);
-assert.strictEqual(C.inBounds({ row: 6, col: 0 }), false);
-assert.strictEqual(C.dirFromDelta(-1, 1).key, 'NE');
-assert.strictEqual(C.isAdjacent({ row: 4, col: 1 }, { row: 3, col: 2 }), true);
+// --- evaluateDir 무효 키 ---
+G = C.newGame('A', 'elnino');
+assert.strictEqual(C.evaluateDir(G, 'XX').valid, false);
 
-// --- 시작 B 확인 ---
-const GB = C.newGame('B');
-assert.deepStrictEqual(GB.pos, { row: 3, col: 5 });
+// --- regionInfo: 바다 타일 ---
+const ocean = C.regionInfo(1, 1, 'elnino');
+assert.strictEqual(ocean.land, false);
+assert.strictEqual(ocean.sst > 0, true);
+assert.ok(ocean.obsText.includes('해수면 온도'));
+// 엘니뇨 vs 라니냬 SST 편차 부호 반전
+const oceanL = C.regionInfo(1, 1, 'lanina');
+assert.strictEqual(ocean.sst > oceanL.sst, true);
 
-console.log('✅ 모든 로직 테스트 통과 (' + new Date().toISOString() + ')');
+// --- regionInfo: 육지 타일 ---
+const korea = C.regionInfo(0, 5, 'elnino');
+assert.strictEqual(korea.land, true);
+assert.strictEqual(korea.name, '한반도');
+assert.ok(korea.obsText.includes('고온') || korea.obsText.length > 0);
+const koreaL = C.regionInfo(0, 5, 'lanina');
+assert.ok(koreaL.obsText.includes('한파'));
+
+// 잘못된 시나리오 키 → 기본값 폴백
+const fallback = C.regionInfo(1, 1, 'nonsense');
+assert.strictEqual(fallback.scenario, 'elnino');
+
+// --- B 시작 라우트 정상 진행 (전체) ---
+G = C.newGame('B', 'lanina');
+const rb = C.ROUTES['B:lanina'];
+for (let i = 1; i < rb.waypoints.length; i++) {
+  const [fr, fc] = rb.waypoints[i - 1];
+  const [tr, tc] = rb.waypoints[i];
+  const d = C.dirFromDelta(tr - fr, tc - fc);
+  const res = C.tryMove(G, d.key);
+  assert.ok(res.ok);
+}
+assert.strictEqual(G.status, 'won');
+
+// --- 무효 시작키/시나리오 → 폴백 ---
+G = C.newGame('Z', 'nonsense');
+assert.strictEqual(G.startKey, 'A');
+assert.strictEqual(G.scenario, 'elnino');
+
+console.log('✅ 모든 로직 테스트 통과');

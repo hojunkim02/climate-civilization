@@ -1,28 +1,31 @@
 (function (global) {
   'use strict';
 
-  const GRID_COLS = 10;
-  const GRID_ROWS = 6;
+  // ===== 지도 격자: 실제 경·위도 기반 =====
+  const GRID_ROWS = 4;
+  const GRID_COLS = 6;
+  const LATS = [45, 15, -15, -45];        // row 0 = 북쪽
+  const LONS = [-150, -90, -30, 30, 90, 130]; // col 0 = 서쪽
 
-  // 타일 좌표: (row, col). row 0 = 북쪽.
-  // 실제 지도 매핑: 각 타일은 아래 LON_BY_COL / LAT_BY_ROW 의 경·위도에 대응한다.
-  // 한국 타일 = (1, 8) → 약 39°N, 127°E
-  const KOREA = { row: 1, col: 8 };
+  const KOREA = { row: 0, col: 5 };
   const START_POINTS = {
-    A: { row: 4, col: 1, name: '동태평양 (칠레 연안)', latitudeBand: '남반구' },
-    B: { row: 3, col: 5, name: '서태평양 (오스트레일리아 북동쪽)', latitudeBand: '남반구 열대' },
+    A: { row: 3, col: 1, name: '칠레 연안 (동태평양)' },
+    B: { row: 2, col: 5, name: '오스트레일리아 북동쪽 (서태평양)' },
   };
 
-  // 타일 → 실제 경도(°E), 위도(°N) 매핑 (등장방형 투법 지도 기준)
-  const LON_BY_COL = [-150, -75, -10, 60, 110, 140, 132, 128, 127, 126];
-  const LAT_BY_ROW = [65, 39, 13, -13, -39, -65];
-  function lonOf(col) { return LON_BY_COL[Math.max(0, Math.min(GRID_COLS - 1, col))]; }
-  function latOf(row) { return LAT_BY_ROW[Math.max(0, Math.min(GRID_ROWS - 1, row))]; }
+  const SCENARIOS = {
+    elnino: {
+      key: 'elnino', label: '엘니뇨',
+      desc: '동태평양 해수면 온도가 평년보다 높아져 대류 중심이 동쪽으로 이동합니다.',
+      korea: { pressure: -0.8, temp: 0.8, precip: -10 },
+    },
+    lanina: {
+      key: 'lanina', label: '라니냬',
+      desc: '무역풍이 강화되어 서태평양 대류가 강해지고, 동태평양에 찬 용승류가 발달합니다.',
+      korea: { pressure: 1.0, temp: -0.8, precip: 5 },
+    },
+  };
 
-  // 한 턴에 이동 가능한 최대 거리 (인접 8방향, 1타일)
-  const MAX_STEP = 1;
-
-  // 8방향 정의: key, 한국어 이름, delta
   const DIRECTIONS = [
     { key: 'N',  label: '북',   dr: -1, dc: 0 },
     { key: 'NE', label: '북동', dr: -1, dc: 1 },
@@ -34,240 +37,238 @@
     { key: 'NW', label: '북서', dr: -1, dc: -1 },
   ];
 
-  // 지형 타일 (문명식: 바다/육지/산)
-  const TILE_TYPES = [
-    'ocean', 'land', 'mountain', 'korea', 'startA', 'startB',
-  ];
-
-  // 기후 예측 데이터: (대륙과 해양의 분포를 반영한 가중치 기반, 시나리오에 따라 부호 반전)
-  const CLIMATE_PRESETS = {
-    elnino: { pressure: +1, temp: +0.6, precip: -10, label: '엘니뇨' },
-    lanina: { pressure: -1, temp: -0.5, precip: +15, label: '라니냬' },
-    neutral: { pressure: 0, temp: 0, precip: 0, label: '중립' },
-  };
-
-  // 시작 지점에 따른 시나리오: 동태평양(칠레) = 라니냬 시작, 서태평양(호주) = 엘니뇨 시작
-  const START_SCENARIO = { A: 'lanina', B: 'elnino' };
-
-  // 턴(경로 단계)마다 관측 데이터 범위
-  const OBS_RANGES = {
-    pressure: { min: 995, max: 1025 },
-    sst: { min: 16, max: 32 },
-    ssh: { min: -25, max: 25 }, // 해수면 높이 이상(cm)
-  };
-
-  function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function manhattan(a, b) {
-    return Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
-  }
-
-  function chebyshev(a, b) {
-    return Math.max(Math.abs(a.row - b.row), Math.abs(a.col - b.col));
-  }
-
   function dirFromDelta(dr, dc) {
     return DIRECTIONS.find(function (d) { return d.dr === dr && d.dc === dc; }) || null;
   }
-
-  function isAdjacent(from, to) {
-    var d = chebyshev(from, to);
-    return d === 1;
-  }
-
   function inBounds(pos) {
     return pos.row >= 0 && pos.row < GRID_ROWS && pos.col >= 0 && pos.col < GRID_COLS;
   }
+  function lonOf(col) { return LONS[Math.max(0, Math.min(GRID_COLS - 1, col))]; }
+  function latOf(row) { return LATS[Math.max(0, Math.min(GRID_ROWS - 1, row))]; }
 
-  // 대륙 타일 (육지/산/한국) 지도: 실제 지리 감각을 흉내 낸 단순화된 배치
-  // 10x6: col 0=동태평양(아메리카), col 4~5=인도네시아/호주, col 7~9=동아시아
-  function tileTypeAt(row, col) {
-    if (row === KOREA.row && col === KOREA.col) return 'korea';
-    if (row === START_POINTS.A.row && col === START_POINTS.A.col) return 'startA';
-    if (row === START_POINTS.B.row && col === START_POINTS.B.col) return 'startB';
-    // 육지 근사 (실제 지도 위 대응 지점 기준)
-    if (row === 0 && col === 1) return 'land';        // 북미 (캐나다)
-    if (row === 1 && col === 1) return 'mountain';    // 아팔래치아/안데스 산계
-    if (row === 5 && col === 1) return 'land';        // 남아메리카 남부 (파타고니아)
-    if (row === 3 && col === 4) return 'land';        // 인도네시아
-    if (row === 4 && col === 5) return 'land';        // 호주
-    if (row === 0 && col === 8) return 'land';        // 시베리아
-    if (row === 1 && col === 9) return 'land';        // 동아시아 (중국)
-    return 'ocean';
+  // ===== 지역 정보 (지도 클릭 관측용) =====
+  const REGION_NAMES = {
+    '0,0': '베링해',            '0,1': '캘리포니아 앞바다',  '0,2': '북대서양',
+    '0,3': '서아시아 (카스피 해 인근)', '0,4': '중국 대륙 (티베트)',  '0,5': '한반도',
+    '1,0': '중태평양 (하와이 북쪽)', '1,1': '적도 동태평양',       '1,2': '대서양 열대 해역',
+    '1,3': '아프리카 동부 · 인도양', '1,4': '인도차이나반도',      '1,5': '필리핀해',
+    '2,0': '남태평양 중부',      '2,1': '남태평양 (칠레 앞바다)', '2,2': '남대서양',
+    '2,3': '인도양 남부',        '2,4': '인도네시아 해역 (웜풀)', '2,5': '코랄해 (오스트레일리아 북동쪽)',
+    '3,0': '남태평양 고위도',    '3,1': '칠레 연안',             '3,2': '아르헨티나 연안',
+    '3,3': '인도양 고위도',      '3,4': '오스트레일리아 서쪽 인도양', '3,5': '태즈메이해',
+  };
+  const LAND_TILES = ['0,3', '0,4', '0,5', '1,3', '1,4', '3,2'];
+  const SST_BASE = [12, 27, 26, 9]; // row별 평년 해수면 온도(°C)
+  const SST_ANOM = {
+    elnino: [1.8, 2.0, 0.3, 0.2, -0.8, -1.2], // col별 평년 편차
+    lanina: [-1.8, -2.0, -0.3, -0.2, 0.8, 1.2],
+  };
+
+  function landNote(row, col, scenarioKey) {
+    var key = row + ',' + col;
+    if (key === '0,5') return scenarioKey === 'elnino'
+      ? '이상 고온 경향 (겨울 기온 상승, 시베리아 고기압 약화)'
+      : '한파 경향 (시베리아 고기압 강화, 찬 북풍 유입)';
+    if (key === '0,4') return scenarioKey === 'elnino'
+      ? '티베트 고기압 발달 (상층 제트 강화)'
+      : '시베리아 고기압 강화 (대륙 냉각)';
+    if (key === '1,4') return scenarioKey === 'elnino'
+      ? '대류 억제 (건조 경향)'
+      : '대류 강화 (습윤 경향)';
+    return '원격 상관 경로의 육지 지점입니다.';
   }
 
-  // 위도대 (row 기반, 북반구 0~2, 적도 2, 남반구 3~5 근사)
-  function latitudeBandOf(row) {
-    if (row <= 1) return '북반구 중위도';
-    if (row === 2) return '적도';
-    if (row === 3) return '남반구 열대';
-    return '남반구 중위도';
-  }
-
-  // ===== 핵심: 화살표 방향 타당성 평가 (규칙 기반, LLM 교체 지점) =====
-  //
-  // 과학적 배경 (교육과정 [12지구01-02], [12지구01-05] 성취기준):
-  // 1) 엘니뇨: 동태평양 수온 상승 → 대류 중심 동쪽 이동 → 해양 저기압/육상 고기압 재배치.
-  //    동태평양 상공의 하강 기류 약화, 무역풍 약화 → 대기 순환이 "동쪽으로" 순환 완성.
-  // 2) 라니냬: 동태평양 수온 하강 → 서태평양 대류 강화 → 무역풍 강화 → 서쪽으로 순환.
-  //
-  // 학생 입력: 관측 데이터 (기압, 수온, 해수면 높이)
-  // 학생 조작: 다음 이동 방향 (8방향)
-  //
-  // 평가 로직:
-  // - 수온/기압/해수면 높이가 지시하는 시나리오 식별 (elnino/lanina/neutral)
-  // - 시나리오가 elnino면 동쪽(E/NE/SE) 이동이 타당, lanina면 서쪽(W/NW/SW) 이동이 타당
-  // - 중립이면 북쪽(N/NE/NW) 이동(한국 향해 진행)만 타당
-  // - 시나리오와 반대 방향이면 실패 (개념 피드백 제공)
-
-  function classifyObservation(obs) {
-    // obs: { pressure, sst, ssh }
-    var score = 0;
-    if (obs.sst >= 28) score += 1;        // 동태평양 수온 높음 → 엘니뇨
-    else if (obs.sst <= 24) score -= 1;   // 동태평양 수온 낮음 → 라니냬
-
-    if (obs.pressure <= 1008) score += 1;  // 저기압 → 대류 중심 → 엘니뇨
-    else if (obs.pressure >= 1015) score -= 1; // 고기압 → 라니냬
-
-    if (obs.ssh >= 10) score += 1;        // 해수면 높이 상승 → 동쪽 워치 스택 붕괴 → 엘니뇨
-    else if (obs.ssh <= -10) score -= 1;  // 해수면 낮아짐 → 라니냬
-
-    if (score >= 2) return 'elnino';
-    if (score <= -2) return 'lanina';
-    return 'neutral';
-  }
-
-  function validDirectionsForScenario(scenario) {
-    if (scenario === 'elnino') return ['E', 'NE', 'SE'];
-    if (scenario === 'lanina') return ['W', 'NW', 'SW'];
-    return ['N', 'NE', 'NW'];
-  }
-
-  function oppositeDirections(valid) {
-    var opp = { E: 'W', W: 'E', N: 'S', S: 'N', NE: 'SW', SW: 'NE', NW: 'SE', SE: 'NW' };
-    return DIRECTIONS.filter(function (d) { return valid.indexOf(opp[d.key]) !== -1; })
-      .map(function (d) { return d.key; });
-  }
-
-  // 규칙 기반 타당성 평가. LLM 피드백으로 교체 가능하도록 순수 함수 + JSON 결과.
-  function evaluateArrow(obs, dirKey) {
-    var scenario = classifyObservation(obs);
-    var valid = validDirectionsForScenario(scenario);
-    var dir = DIRECTIONS.find(function (d) { return d.key === dirKey; });
-    if (!dir) return { valid: false, scenario: scenario, reason: 'invalid_dir' };
-
-    var ok = valid.indexOf(dirKey) !== -1;
-    var feedback;
-    if (ok) {
-      feedback = {
-        title: '타당합니다',
-        body: '관측 데이터(수온 ' + obs.sst + '°C, 기압 ' + obs.pressure + 'hPa, 해수면 높이 ' +
-          (obs.ssh > 0 ? '+' : '') + obs.ssh + 'cm)가 가리키는 대기·해양 상태는 \'' +
-          CLIMATE_PRESETS[scenario].label + '\'입니다. 이 상태에서 대기 순환의 이동 방향은 \'' +
-          dir.label + '\' 방향이 교육과정 개념(무역풍, 해수 순환, 기압 배치)과 일치합니다.',
-      };
-    } else {
-      var opposite = oppositeDirections(valid);
-      var isOpposite = opposite.indexOf(dirKey) !== -1;
-      feedback = {
-        title: isOpposite ? '방향이 반대입니다' : '근거가 부족합니다',
-        body: '관측 데이터는 \'' + CLIMATE_PRESETS[scenario].label + '\' 상태를 가리킵니다. 이 경우 대기 순환은 ' +
-          (scenario === 'elnino' ? '동쪽(워커 순환의 약화와 동진)' : scenario === 'lanina' ? '서쪽(강화된 무역풍을 따라)' : '한국을 향한 북쪽') +
-          '으로 이동하는 것이 타당합니다. \'' + dir.label + '\' 방향은 ' +
-          (isOpposite ? '순환 방향과 정반대입니다. 기압 경도력과 코리올리 효과를 다시 생각해 보세요.' :
-            '이 시나리오의 순환 방향과 일치하지 않습니다. 수온·기압·해수면 높이가 방향을 어떻게 결정하는지 다시 확인하세요.') +
-          ' 실패한 이유를 학습지에 기록하세요.',
-      };
-    }
-    return { valid: ok, scenario: scenario, feedback: feedback };
-  }
-
-  // 기후 예측 데이터 (다음 타일 C의 평년 대비 변화)
-  function forecastNextTile(scenario, turn, pos) {
-    var preset = CLIMATE_PRESETS[scenario];
-    var band = latitudeBandOf(pos.row);
-    // 턴이 진행될수록(한국에 가까울수록) 영향 증폭
-    var ramp = 1 + 0.15 * turn;
-    var noise = function (base) { return base * ramp; };
-    return {
-      pressureAnomaly: +(noise(preset.pressure)).toFixed(1),
-      tempAnomaly: +(noise(preset.temp)).toFixed(2),
-      precipAnomaly: Math.round(noise(preset.precip)),
-      band: band,
-      scenario: scenario,
+  function regionInfo(row, col, scenarioKey) {
+    scenarioKey = SCENARIOS[scenarioKey] ? scenarioKey : 'elnino';
+    var key = row + ',' + col;
+    var land = LAND_TILES.indexOf(key) !== -1;
+    var info = {
+      row: row, col: col,
+      name: REGION_NAMES[key] || '해양',
+      lat: latOf(row), lon: lonOf(col),
+      land: land,
+      scenario: scenarioKey,
+      scenarioLabel: SCENARIOS[scenarioKey].label,
     };
+    if (!land) {
+      var anom = SST_ANOM[scenarioKey][col];
+      info.sst = +(SST_BASE[row] + anom).toFixed(1);
+      info.sstAnomaly = anom;
+      info.conv = anom >= 0.5 ? '상승 기류 (대류 강화)'
+        : anom <= -0.5 ? '하강 기류 (대류 약화)'
+        : '약한 상승 기류';
+      info.obsText = '해수면 온도 ' + info.sst + '°C (평년比 ' +
+        (anom > 0 ? '+' : '') + anom + '°C) · ' + info.conv;
+    } else {
+      info.sst = null;
+      info.sstAnomaly = null;
+      info.conv = null;
+      info.landNote = landNote(row, col, scenarioKey);
+      info.obsText = info.landNote;
+    }
+    return info;
   }
 
-  // 도달 여부
-  function reachedKorea(pos) {
-    return pos.row === KOREA.row && pos.col === KOREA.col;
+  // ===== 시나리오별 정해진 대기 순환 경로 (학생이 찾아내는 목표) =====
+  const ROUTES = {
+    'A:elnino': {
+      waypoints: [[3, 1], [2, 1], [1, 1], [1, 2], [1, 3], [0, 3], [0, 4], [0, 5]],
+      notes: [
+        '엘니뇨가 발생하면 동태평양의 하강 기류가 약해지고, 남태평양의 무역풍이 약화됩니다.',
+        '적도 동태평양에 난수가 발생하여 대류가 활발해지고, 강한 상승 기류가 나타납니다.',
+        '상승한 공기는 상층에서 발산하며 동쪽으로 이동합니다 (워커 순환의 동쪽 이동).',
+        '상층 발산 기류가 로스비 파동을 타고 계속 동쪽으로 전파됩니다.',
+        '아시아 제트 기류가 강화되며, 원격 상관이 중위도로 전파됩니다.',
+        '티베트 고기압이 발달하고, 대기 흐름이 한반도 쪽으로 이어집니다.',
+        '엘니뇨 해에는 한반도 겨울 기온이 평년보다 높아지는 경향이 나타납니다.',
+      ],
+    },
+    'A:lanina': {
+      waypoints: [[3, 1], [2, 1], [1, 1], [1, 2], [1, 3], [0, 4], [0, 5]],
+      notes: [
+        '라니냬 시 무역풍이 강화되고, 동태평양의 찬 용승류가 강해집니다.',
+        '적도 동태평양은 냉수로 대류가 억제되고, 하강 기류가 강화됩니다.',
+        '하강한 공기는 서쪽의 상승 기류 지대(서태평양 웜풀)를 향해 이동합니다.',
+        '강화된 무역풍을 따라 대기가 인도양까지 이동하며 수렴합니다.',
+        '대기 파동이 인도차이나~티베트로 북상하며, 시베리아 고기압을 강화시킵니다.',
+        '라니냬 해에는 찬 대륙 고기압의 영향으로 한반도에 한파가 나타나는 경향이 있습니다.',
+      ],
+    },
+    'B:elnino': {
+      waypoints: [[2, 5], [2, 4], [2, 3], [1, 3], [1, 4], [0, 4], [0, 5]],
+      notes: [
+        '엘니뇨 시 서태평양 웜풀이 수축하여, 인도네시아 해역의 대류가 약화됩니다.',
+        '대류가 약화된 지역의 공기는 하강하며, 서쪽으로 이동하는 보상 흐름이 생깁니다.',
+        '인도 몬순 약화와 함께, 대기가 적도 인도양에서 수렴합니다.',
+        '상층 기류가 인도차이나로 이동하며 아시아 제트에 합류합니다.',
+        '제트 기류를 따라 원격 상관이 북상합니다.',
+        '엘니뇨 해에는 한반도가 이상 고온의 겨울을 맞을 가능성이 높아집니다.',
+      ],
+    },
+    'B:lanina': {
+      waypoints: [[2, 5], [1, 5], [1, 4], [0, 4], [0, 5]],
+      notes: [
+        '라니냬 시 필리핀해~코랄해의 해수면 온도가 높아져 대류가 강화됩니다.',
+        '강한 상승 기류 주변으로 대기가 수렴하며 인도차이나 쪽으로 흐릅니다.',
+        '상승 기류에서 발산한 공기가 북쪽으로 이동하며, 시베리아 고기압을 강화합니다.',
+        '강화된 시베리아 고기압의 영향으로 한반도에 찬 북풍이 유입됩니다.',
+      ],
+    },
+  };
+
+  function routeFor(startKey, scenarioKey) {
+    return ROUTES[startKey + ':' + scenarioKey] || null;
   }
 
   // ===== 게임 상태 =====
-  function newGame(startKey) {
+  function newGame(startKey, scenarioKey) {
+    if (!SCENARIOS[scenarioKey]) scenarioKey = 'elnino';
+    var routeId = (startKey || 'A') + ':' + scenarioKey;
+    var route = ROUTES[routeId];
     var start = START_POINTS[startKey] || START_POINTS.A;
+    if (!route) { startKey = 'A'; routeId = 'A:' + scenarioKey; }
     return {
-      startKey: startKey || 'A',
+      startKey: startKey,
+      scenario: scenarioKey,
+      routeId: routeId,
       pos: { row: start.row, col: start.col },
+      stepIndex: 0,
+      failStreak: 0,
       turn: 0,
       score: 0,
       badges: [],
       path: [{ row: start.row, col: start.col }],
       pressureMarks: [],
-      observations: [],
       failures: [],
       hypotheses: '',
       log: [],
-      status: 'playing', // playing | won
+      status: 'playing',
     };
   }
 
-  function tryMove(state, obs, dirKey) {
-    var dir = DIRECTIONS.find(function (d) { return d.key === dirKey; });
-    if (!dir) return { ok: false, error: 'invalid_dir' };
+  function expectedDelta(state) {
+    var route = ROUTES[state.routeId];
+    if (!route) return null;
+    var from = route.waypoints[state.stepIndex];
+    var to = route.waypoints[state.stepIndex + 1];
+    if (!from || !to) return null;
+    return { dr: to[0] - from[0], dc: to[1] - from[1] };
+  }
+
+  function dirFamily(dr, dc) {
+    var ns = dr < 0 ? '북' : dr > 0 ? '남' : '';
+    var ew = dc > 0 ? '동' : dc < 0 ? '서' : '';
+    return (ns + ew || '현재') + '쪽';
+  }
+
+  // 방향 평가: 시나리오로 정해진 순환 경로의 다음 단계와 일치하는지 판정
+  function evaluateDir(state, dirKey) {
+    var d = DIRECTIONS.find(function (x) { return x.key === dirKey; });
+    if (!d) return { valid: false, reason: 'invalid_dir' };
+    var exp = expectedDelta(state);
+    if (!exp) return { valid: false, reason: 'route_complete' };
+    var ok = d.dr === exp.dr && d.dc === exp.dc;
+    return {
+      valid: ok,
+      note: ROUTES[state.routeId].notes[state.stepIndex] || '',
+      hint: (!ok && state.failStreak >= 2) ? dirFamily(exp.dr, exp.dc) : null,
+      scenario: state.scenario,
+    };
+  }
+
+  function forecastAt(state) {
+    var korea = SCENARIOS[state.scenario].korea;
+    var ramp = 0.5 + 0.1 * state.turn;
+    return {
+      pressureAnomaly: +(korea.pressure * ramp).toFixed(1),
+      tempAnomaly: +(korea.temp * ramp).toFixed(2),
+      precipAnomaly: Math.round(korea.precip * ramp),
+      scenario: state.scenario,
+    };
+  }
+
+  function reachedKorea(pos) {
+    return pos.row === KOREA.row && pos.col === KOREA.col;
+  }
+
+  function tryMove(state, dirKey) {
+    var d = DIRECTIONS.find(function (x) { return x.key === dirKey; });
+    if (!d) return { ok: false, error: 'invalid_dir' };
     if (state.status !== 'playing') return { ok: false, error: 'game_over' };
 
-    var target = { row: state.pos.row + dir.dr, col: state.pos.col + dir.dc };
+    var target = { row: state.pos.row + d.dr, col: state.pos.col + d.dc };
     if (!inBounds(target)) return { ok: false, error: 'out_of_bounds' };
 
-    var evalRes = evaluateArrow(obs, dirKey);
-    var entry = {
-      turn: state.turn,
-      obs: obs,
-      dir: dirKey,
-      valid: evalRes.valid,
-      scenario: evalRes.scenario,
-      feedback: evalRes.feedback,
-      at: { row: state.pos.row, col: state.pos.col },
-    };
-    state.observations.push(entry);
+    var evalRes = evaluateDir(state, dirKey);
 
     if (!evalRes.valid) {
+      state.failStreak += 1;
       state.failures.push({
         turn: state.turn,
         dir: dirKey,
-        reason: evalRes.feedback.title,
-        lesson: evalRes.feedback.body,
+        at: { row: state.pos.row, col: state.pos.col },
+        hint: evalRes.hint,
       });
       state.turn += 1;
       state.score = Math.max(0, state.score - 1);
       state.log.push({
         turn: state.turn, type: 'fail', dir: dirKey,
-        msg: evalRes.feedback.title,
+        hint: evalRes.hint,
+        at: { row: state.pos.row, col: state.pos.col },
       });
       return { ok: false, error: 'invalid_move', evaluation: evalRes };
     }
 
     // 이동 성공
-    state.pos = target;
+    var route = ROUTES[state.routeId];
+    state.stepIndex += 1;
+    state.pos = { row: target.row, col: target.col };
     state.turn += 1;
     state.score += 10;
+    state.failStreak = 0;
     state.path.push({ row: target.row, col: target.col });
 
-    var scenario = evalRes.scenario;
-    var forecast = forecastNextTile(scenario, state.turn, target);
+    var forecast = forecastAt(state);
     state.pressureMarks.push({
       row: target.row, col: target.col,
       color: forecast.pressureAnomaly > 0 ? 'red' : forecast.pressureAnomaly < 0 ? 'blue' : 'gray',
@@ -275,55 +276,62 @@
     });
     state.log.push({
       turn: state.turn, type: 'move', dir: dirKey,
-      to: target, forecast: forecast, scenario: scenario,
+      to: { row: target.row, col: target.col },
+      note: evalRes.note,
+      forecast: forecast,
+      scenario: state.scenario,
     });
 
     if (reachedKorea(target)) {
       state.status = 'won';
       state.score += 50;
       state.badges.push('한반도 도달');
+      if (state.failures.length === 0) state.badges.push('무실패 예측');
       state.finalImpact = finalImpact(state);
-    } else if (state.turn >= 20) {
-      state.badges.push('탐구왕');
+      state.log.push({ type: 'win', msg: '한반도 도달! 남방진동의 영향을 확인했습니다.' });
+    } else if (state.turn >= 25) {
+      if (state.badges.indexOf('탐구왕') === -1) state.badges.push('탐구왕');
     }
-    if (state.failures.length === 0 && state.status === 'won') {
-      state.badges.push('무실패 예측');
-    }
-    return { ok: true, evaluation: evalRes, forecast: forecast, state: state };
+    return { ok: true, evaluation: evalRes, forecast: forecast };
   }
 
   function finalImpact(state) {
-    var scen = state.observations.length ?
-      state.observations[state.observations.length - 1].scenario : 'neutral';
-    return forecastNextTile(scen, state.turn, KOREA);
+    var korea = SCENARIOS[state.scenario].korea;
+    var ramp = 1 + 0.05 * state.turn;
+    return {
+      pressureAnomaly: +(korea.pressure * ramp).toFixed(1),
+      tempAnomaly: +(korea.temp * ramp).toFixed(2),
+      precipAnomaly: Math.round(korea.precip * ramp),
+      scenario: state.scenario,
+      scenarioLabel: SCENARIOS[state.scenario].label,
+    };
   }
 
   var core = {
-    GRID_COLS: GRID_COLS,
     GRID_ROWS: GRID_ROWS,
+    GRID_COLS: GRID_COLS,
+    LATS: LATS,
+    LONS: LONS,
     KOREA: KOREA,
     START_POINTS: START_POINTS,
-    LON_BY_COL: LON_BY_COL,
-    LAT_BY_ROW: LAT_BY_ROW,
+    SCENARIOS: SCENARIOS,
+    DIRECTIONS: DIRECTIONS,
+    REGION_NAMES: REGION_NAMES,
+    LAND_TILES: LAND_TILES,
+    ROUTES: ROUTES,
     lonOf: lonOf,
     latOf: latOf,
-    DIRECTIONS: DIRECTIONS,
-    TILE_TYPES: TILE_TYPES,
-    CLIMATE_PRESETS: CLIMATE_PRESETS,
-    OBS_RANGES: OBS_RANGES,
-    classifyObservation: classifyObservation,
-    evaluateArrow: evaluateArrow,
-    validDirectionsForScenario: validDirectionsForScenario,
-    forecastNextTile: forecastNextTile,
-    tileTypeAt: tileTypeAt,
-    latitudeBandOf: latitudeBandOf,
+    dirFromDelta: dirFromDelta,
+    inBounds: inBounds,
+    regionInfo: regionInfo,
+    routeFor: routeFor,
     newGame: newGame,
+    expectedDelta: expectedDelta,
+    evaluateDir: evaluateDir,
     tryMove: tryMove,
+    forecastAt: forecastAt,
     finalImpact: finalImpact,
     reachedKorea: reachedKorea,
-    isAdjacent: isAdjacent,
-    inBounds: inBounds,
-    dirFromDelta: dirFromDelta,
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = core;

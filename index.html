@@ -5,144 +5,191 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>기후 문명 — 남방진동이 한반도에 미치는 영향</title>
 <style>
+  :root {
+    --bg: #101b28;
+    --panel: rgba(16,28,42,.94);
+    --border: #34506b;
+    --accent: #7fc8ff;
+    --gold: #ffd97a;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 15px; }
   body {
     font-family: "Segoe UI", "Malgun Gothic", "Apple SD Gothic Neo", sans-serif;
-    background: #1a2634;
-    background-image: radial-gradient(circle at 20% 30%, rgba(40,80,120,.35), transparent 60%),
-                      radial-gradient(circle at 80% 20%, rgba(90,140,90,.18), transparent 55%);
+    background: var(--bg);
+    background-image: radial-gradient(circle at 15% 20%, rgba(40,80,120,.3), transparent 55%),
+                      radial-gradient(circle at 85% 15%, rgba(90,140,90,.12), transparent 50%);
     background-attachment: fixed;
     color: #e8eef4;
     min-height: 100vh;
   }
   header {
-    background: rgba(10,20,30,.75);
+    background: rgba(10,20,30,.82);
     border-bottom: 2px solid #3b5a7a;
-    padding: 14px 24px;
-    display: flex; align-items: center; gap: 18px; flex-wrap: wrap;
-    position: sticky; top: 0; z-index: 20;
-    backdrop-filter: blur(4px);
+    padding: 10px 20px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    position: sticky; top: 0; z-index: 30;
+    backdrop-filter: blur(6px);
   }
-  header h1 { font-size: 1.25rem; letter-spacing: 1px; }
-  header h1 span { color: #7fc8ff; }
-  .hud { display: flex; gap: 14px; margin-left: auto; flex-wrap: wrap; }
+  header h1 { font-size: 1.1rem; letter-spacing: .5px; white-space: nowrap; }
+  header h1 span { color: var(--accent); }
+  .hud { display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap; }
   .hud .stat {
     background: rgba(0,0,0,.35); border: 1px solid #3b5a7a;
-    border-radius: 8px; padding: 6px 14px; text-align: center; min-width: 84px;
+    border-radius: 8px; padding: 4px 12px; text-align: center; min-width: 70px;
   }
-  .hud .stat .label { font-size: .72rem; color: #9fb8cc; }
-  .hud .stat .value { font-size: 1.15rem; font-weight: bold; color: #ffd97a; }
-  .badges { display: flex; gap: 6px; }
+  .hud .stat .label { font-size: .68rem; color: #9fb8cc; }
+  .hud .stat .value { font-size: 1.02rem; font-weight: bold; color: var(--gold); }
   .badge {
     background: linear-gradient(135deg, #b8860b, #ffd700);
-    color: #241a00; font-size: .72rem; font-weight: bold;
-    border-radius: 12px; padding: 3px 10px; box-shadow: 0 0 8px rgba(255,215,0,.4);
+    color: #241a00; font-size: .68rem; font-weight: bold;
+    border-radius: 12px; padding: 3px 9px; box-shadow: 0 0 8px rgba(255,215,0,.4);
+    align-self: center;
   }
-  main { display: grid; grid-template-columns: 1fr 360px; gap: 16px; padding: 16px 24px; max-width: 1440px; margin: 0 auto; }
-  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
+
+  /* ===== 2단 레이아웃 (노트북/태블릿 가로 최적화) ===== */
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.9fr) minmax(320px, 1fr);
+    gap: 14px; padding: 14px 20px;
+    max-width: 1500px; margin: 0 auto;
+    align-items: start;
+  }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
 
   .panel {
-    background: rgba(16,28,42,.92);
-    border: 1px solid #34506b; border-radius: 12px;
-    padding: 14px; box-shadow: 0 4px 16px rgba(0,0,0,.35);
+    background: var(--panel);
+    border: 1px solid var(--border); border-radius: 12px;
+    padding: 12px 14px; box-shadow: 0 4px 14px rgba(0,0,0,.35);
   }
-  .panel h2 { font-size: .95rem; color: #9fd0f5; margin-bottom: 10px; border-left: 3px solid #7fc8ff; padding-left: 8px; }
+  .panel h2 {
+    font-size: .9rem; color: #9fd0f5; margin-bottom: 8px;
+    border-left: 3px solid var(--accent); padding-left: 8px;
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .left-col { display: grid; gap: 14px; }
+  .right-col { display: grid; gap: 14px; }
 
-  /* ===== 실제 지도 ===== */
-  #mapWrap { position: relative; overflow: hidden; border-radius: 8px; border: 1px solid #34506b; }
+  /* ===== 지도 ===== */
+  #mapPanel { position: relative; }
+  #mapWrap { position: relative; overflow: hidden; border-radius: 8px; border: 1px solid #26425c; }
   #worldmap { display: block; width: 100%; height: auto; }
-  #overlay {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-    pointer-events: none;
-  }
-  #startPoints {
-    position: absolute; inset: 0; width: 100%; height: 100%;
-  }
-  .sp-btn {
+  #overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  #clickLayer { position: absolute; inset: 0; }
+  .grid-dot {
     position: absolute; transform: translate(-50%, -50%);
-    background: rgba(106,79,160,.85); border: 2px solid #b8a0e8;
-    color: #fff; font-size: .72rem; font-weight: bold;
-    border-radius: 10px; padding: 4px 10px; cursor: pointer;
-    pointer-events: auto; white-space: nowrap; z-index: 5;
-    box-shadow: 0 0 10px rgba(150,120,220,.5);
-    transition: all .2s;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(127,200,255,.14); border: 2px solid rgba(127,200,255,.5);
+    cursor: pointer; pointer-events: auto;
+    transition: background .15s, transform .15s;
   }
-  .sp-btn:hover { background: rgba(140,110,200,.95); transform: translate(-50%, -50%) scale(1.1); }
-  #mapLegend { font-size: .75rem; color: #9fb8cc; margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 5px; }
-  .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,.4); }
+  .grid-dot:hover { background: rgba(127,200,255,.4); transform: translate(-50%,-50%) scale(1.25); }
+  .grid-dot.kd { border-color: rgba(255,217,122,.9); background: rgba(255,215,0,.15); }
+  .grid-dot.start { border-color: #b8a0e8; background: rgba(150,120,220,.25); }
+  #mapLegend { font-size: .72rem; color: #9fb8cc; margin-top: 8px; display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,.4); }
+  #clickHint { font-size: .72rem; color: #9fd0f5; margin-top: 4px; }
+
+  /* 지역 정보 팝업 */
+  #regionCard {
+    position: absolute; z-index: 25; min-width: 230px; max-width: 280px;
+    background: rgba(13,26,40,.96); border: 1px solid var(--accent); border-radius: 10px;
+    padding: 10px 12px; font-size: .78rem; line-height: 1.5;
+    box-shadow: 0 6px 20px rgba(0,0,0,.5); display: none;
+  }
+  #regionCard.show { display: block; }
+  #regionCard h3 { font-size: .84rem; color: var(--accent); margin-bottom: 4px; }
+  #regionCard .coords { color: #7a93a8; font-size: .7rem; margin-bottom: 6px; }
+  #regionCard .obs { color: #d8e8f5; }
+  #regionCard .close-x {
+    position: absolute; top: 4px; right: 8px; cursor: pointer;
+    color: #7a93a8; font-weight: bold; font-size: .85rem;
+  }
 
   /* ===== 폼 ===== */
-  .form-row { margin-bottom: 10px; }
-  .form-row label { display: block; font-size: .78rem; color: #b8cde0; margin-bottom: 3px; }
-  .form-row input, .form-row textarea, .form-row select {
-    width: 100%; padding: 8px 10px; border-radius: 6px;
-    border: 1px solid #3b5a7a; background: #0e1a28; color: #e8eef4; font-size: .9rem;
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+  .form-row.full { grid-column: 1 / -1; }
+  .form-row label { display: block; font-size: .74rem; color: #b8cde0; margin-bottom: 2px; }
+  .form-row input, .form-row textarea {
+    width: 100%; padding: 7px 9px; border-radius: 6px;
+    border: 1px solid #3b5a7a; background: #0e1a28; color: #e8eef4; font-size: .86rem;
   }
-  .hint { font-size: .7rem; color: #7a93a8; margin-top: 2px; }
-  .dir-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
-    margin: 10px 0;
-  }
+  .hint { font-size: .66rem; color: #7a93a8; margin-top: 1px; }
+  .dir-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 8px 0; }
   .dir-btn {
-    padding: 10px 0; border-radius: 8px; border: 1px solid #3b5a7a;
+    padding: 9px 0; border-radius: 8px; border: 1px solid #3b5a7a;
     background: linear-gradient(160deg, #1b3b58, #12283d);
-    color: #dce9f5; font-size: .85rem; cursor: pointer; transition: all .15s;
+    color: #dce9f5; font-size: .8rem; cursor: pointer; transition: all .12s;
   }
-  .dir-btn:hover:not(:disabled) { background: linear-gradient(160deg, #2a5a86, #1b3f5f); transform: scale(1.04); }
-  .dir-btn:disabled { opacity: .3; cursor: not-allowed; }
+  .dir-btn:hover { background: linear-gradient(160deg, #2a5a86, #1b3f5f); }
   .dir-btn.active { background: linear-gradient(160deg, #b8860b, #8a6508); border-color: #ffd700; }
   .btn {
-    width: 100%; padding: 11px; border-radius: 8px; border: none; cursor: pointer;
-    font-size: .95rem; font-weight: bold; color: #10233a;
-    background: linear-gradient(135deg, #7fc8ff, #4aa3e8);
-    transition: filter .15s;
+    width: 100%; padding: 10px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: .9rem; font-weight: bold; color: #10233a;
+    background: linear-gradient(135deg, #7fc8ff, #4aa3e8); transition: filter .15s;
   }
   .btn:hover { filter: brightness(1.15); }
   .btn.secondary { background: linear-gradient(135deg, #93a8b8, #6a8298); }
   .btn.gold { background: linear-gradient(135deg, #ffd700, #d4a017); }
-  .btn + .btn { margin-top: 8px; }
+  .btn + .btn { margin-top: 6px; }
 
   /* ===== 피드백 ===== */
   #feedback {
-    border-radius: 10px; padding: 12px; margin-top: 12px; font-size: .85rem;
+    border-radius: 10px; padding: 10px 12px; margin-top: 10px; font-size: .8rem;
     display: none; line-height: 1.55; animation: fadein .3s;
   }
-  @keyframes fadein { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; } }
+  @keyframes fadein { from { opacity: 0; transform: translateY(5px);} to { opacity: 1; } }
   #feedback.ok { display: block; background: rgba(50,120,60,.25); border: 1px solid #4a9a55; }
   #feedback.bad { display: block; background: rgba(160,50,40,.22); border: 1px solid #b0503f; }
-  #feedback h3 { font-size: .9rem; margin-bottom: 6px; }
+  #feedback h3 { font-size: .86rem; margin-bottom: 4px; }
   #feedback.ok h3 { color: #8be095; } #feedback.bad h3 { color: #f0a08a; }
 
   /* ===== 로그 ===== */
-  #log { max-height: 220px; overflow-y: auto; font-size: .78rem; }
-  .log-entry { padding: 6px 8px; border-left: 2px solid #3b5a7a; margin-bottom: 6px; background: rgba(0,0,0,.2); border-radius: 0 6px 6px 0; }
+  #log { max-height: 180px; overflow-y: auto; font-size: .74rem; }
+  .log-entry { padding: 5px 8px; border-left: 2px solid #3b5a7a; margin-bottom: 5px; background: rgba(0,0,0,.2); border-radius: 0 6px 6px 0; }
   .log-entry.fail { border-color: #d05a3f; }
-  .log-entry.move { border-color: #7fc8ff; }
+  .log-entry.move { border-color: var(--accent); }
   .log-entry.win { border-color: #ffd700; background: rgba(255,215,0,.1); }
-  .log-entry .turn-tag { color: #7a93a8; font-size: .68rem; }
+  .log-entry .turn-tag { color: #7a93a8; font-size: .64rem; }
 
-  /* ===== 결과 모달 ===== */
-  #modal {
-    position: fixed; inset: 0; background: rgba(5,10,16,.8);
-    display: none; align-items: center; justify-content: center; z-index: 50;
+  /* ===== 시작 화면 ===== */
+  .start-screen { text-align: center; }
+  #startOverlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(8,16,26,.55); z-index: 20; gap: 14px; padding: 20px; }
+  .start-box {
+    background: rgba(13,26,40,.95); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 26px; max-width: 640px; text-align: center;
+    box-shadow: 0 8px 30px rgba(0,0,0,.5);
   }
+  .start-box h2 { font-size: 1.05rem; color: #9fd0f5; border: none; padding: 0; margin-bottom: 8px; }
+  .start-box p { font-size: .8rem; color: #b8cde0; line-height: 1.6; margin-bottom: 6px; }
+  .start-box .instruction { color: var(--gold); font-weight: bold; margin-top: 8px; }
+  .scenario-btns { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+  .scenario-btn {
+    padding: 10px 22px; border-radius: 10px; border: 2px solid #b8a0e8; cursor: pointer;
+    background: rgba(106,79,160,.6); color: #fff; font-size: .86rem; font-weight: bold;
+    transition: all .15s;
+  }
+  .scenario-btn:hover { background: rgba(140,110,200,.8); transform: scale(1.05); }
+  .scenario-btn.sel { background: #8a68c0; border-color: #ffd700; }
+
+  /* ===== 모달 ===== */
+  #modal { position: fixed; inset: 0; background: rgba(5,10,16,.8); display: none; align-items: center; justify-content: center; z-index: 60; }
   #modal.show { display: flex; }
   .modal-card {
     background: linear-gradient(160deg, #14283e, #0d1c2c);
     border: 2px solid #ffd700; border-radius: 14px;
-    padding: 26px; max-width: 560px; width: 92%;
+    padding: 24px; max-width: 560px; width: 92%;
     box-shadow: 0 0 40px rgba(255,215,0,.25);
   }
-  .modal-card h2 { color: #ffd700; font-size: 1.3rem; margin-bottom: 14px; text-align: center; }
-  .impact-table { width: 100%; border-collapse: collapse; margin: 12px 0; }
-  .impact-table th, .impact-table td { padding: 8px; border: 1px solid #3b5a7a; font-size: .85rem; text-align: center; }
+  .modal-card h2 { color: #ffd700; font-size: 1.2rem; margin-bottom: 12px; text-align: center; }
+  .impact-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+  .impact-table th, .impact-table td { padding: 7px; border: 1px solid #3b5a7a; font-size: .82rem; text-align: center; }
   .impact-table th { background: rgba(0,0,0,.3); color: #9fd0f5; }
-  .up { color: #ff8c6a; } .down { color: #7fc8ff; }
+  .up { color: #ff8c6a; } .down { color: var(--accent); }
 
-  .start-screen { text-align: center; }
   .hidden { display: none !important; }
-  footer { text-align: center; font-size: .72rem; color: #6a8298; padding: 18px; }
+  footer { text-align: center; font-size: .68rem; color: #6a8298; padding: 14px; }
 </style>
 </head>
 <body>
@@ -152,96 +199,110 @@
   <div class="hud">
     <div class="stat"><div class="label">턴</div><div class="value" id="hudTurn">0</div></div>
     <div class="stat"><div class="label">점수</div><div class="value" id="hudScore">0</div></div>
-    <div class="stat"><div class="label">위치</div><div class="value" id="hudPos">-</div></div>
-    <div class="badges" id="hudBadges"></div>
+    <div class="stat"><div class="label">현재 위치</div><div class="value" id="hudPos" style="font-size:.82rem;">—</div></div>
+    <div id="hudBadges" style="display:flex;gap:5px;"></div>
   </div>
 </header>
 
 <main>
-  <!-- 시작 화면 -->
-  <section id="startScreen" class="panel start-screen">
-    <h2>🧭 탐구 질문: 남방진동이 발생하면 한반도의 날씨는 어떻게 될까?</h2>
-    <p style="font-size:.85rem; color:#b8cde0; margin:10px 0 6px; line-height:1.6;">
-      실제 세계지도 위에서 시작 지점을 클릭하고, 관측 데이터를 입력해 대기 순환 방향을 화살표로 예측하세요.<br>
-      예측이 타당하면 대기가 그 방향으로 이동하고, 틀리면 과학 개념 피드백을 받습니다.<br>
-      화살표를 이어 🇰🇷 한반도에 도달하면 남방진동의 영향이 정리됩니다.
-    </p>
-    <p style="font-size:.78rem; color:#9fd0f5; margin-bottom:4px;">👇 아래 지도에서 시작 지점(A 또는 B)을 클릭하세요</p>
-  </section>
-
-  <!-- 게임 화면 -->
-  <section id="gameScreen" class="hidden">
-    <div style="display:grid; gap:16px;">
-      <div class="panel">
-        <h2>🗺 실제 세계지도 (등장방형 투법)</h2>
-        <div id="mapWrap">
-          <img id="worldmap" src="worldmap.svg" alt="세계지도">
-          <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
-          <div id="startPoints"></div>
+  <!-- ===== 왼쪽: 지도 + 로그 ===== -->
+  <div class="left-col">
+    <div class="panel" id="mapPanel">
+      <h2>🗺 실제 세계지도 — 태평양 중심</h2>
+      <div id="mapWrap">
+        <img id="worldmap" src="worldmap.svg" alt="세계지도">
+        <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+        <div id="clickLayer"></div>
+        <!-- 시작 오버레이 -->
+        <div id="startOverlay">
+          <div class="start-box">
+            <h2>🧭 탐구 질문: 남방진동이 발생하면 한반도의 날씨는 어떻게 될까?</h2>
+            <p>실제 세계지도 위에서 시작 지점을 고르고, 관측 데이터를 보며<br>
+               대기 순환이 한반도로 이어지는 길을 화살표로 예측하세요.</p>
+            <p class="instruction">👇 지도 위 보라색 지점을 클릭해 시작 지점을 정하세요</p>
+            <div class="scenario-btns" id="startBtns"></div>
+          </div>
         </div>
-        <div id="mapLegend">
-          <span class="legend-item"><span class="dot" style="background:rgba(220,60,40,.7);"></span>기압 상승</span>
-          <span class="legend-item"><span class="dot" style="background:rgba(50,110,230,.7);"></span>기압 하강</span>
-          <span class="legend-item"><span class="dot" style="background:#ffd700;"></span>현재 위치</span>
-          <span class="legend-item">🟣 시작 지점</span>
+        <!-- 지역 정보 카드 -->
+        <div id="regionCard">
+          <span class="close-x" onclick="hideRegionCard()">✕</span>
+          <h3 id="rcName"></h3>
+          <div class="coords" id="rcCoords"></div>
+          <div class="obs" id="rcObs"></div>
         </div>
       </div>
-
-      <div class="panel">
-        <h2>📜 활동 로그 (실패 경험 기록)</h2>
-        <div id="log"></div>
+      <div id="clickHint">💡 지도의 ● 지점을 클릭하면 해당 지역의 해수면 온도와 대기 상태를 관측할 수 있습니다.</div>
+      <div id="mapLegend">
+        <span class="legend-item"><span class="dot" style="background:rgba(220,60,40,.7);"></span>기압 상승</span>
+        <span class="legend-item"><span class="dot" style="background:rgba(50,110,230,.7);"></span>기압 하강</span>
+        <span class="legend-item"><span class="dot" style="background:#ffd700;"></span>현재 위치</span>
+        <span class="legend-item"><span class="dot" style="background:rgba(150,120,220,.7);"></span>시작 지점</span>
       </div>
     </div>
 
-    <div style="display:grid; gap:16px; align-content:start;">
-      <div class="panel">
-        <h2>📋 관측 데이터 입력</h2>
+    <div class="panel">
+      <h2>📜 활동 로그 (실패 경험 기록)</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <!-- ===== 오른쪽: 컨트롤 ===== -->
+  <div class="right-col">
+    <div class="panel" id="obsPanel">
+      <h2>📋 관측 데이터</h2>
+      <div class="form-grid">
         <div class="form-row">
-          <label>현재 지점 대기압 (hPa)</label>
+          <label>대기압 (hPa)</label>
           <input type="number" id="inpPressure" min="995" max="1025" value="1013" step="0.5">
-          <div class="hint">995~1025 hPa (평년 약 1013 hPa)</div>
+          <div class="hint">995~1025 (평년 1013)</div>
         </div>
         <div class="form-row">
-          <label>현재 지점 해수면 수온 (°C)</label>
-          <input type="number" id="inpSst" min="16" max="32" value="26" step="0.1">
-          <div class="hint">16~32 °C (적도 태평양 평년 약 26~27 °C)</div>
+          <label>해수면 수온 (°C)</label>
+          <input type="number" id="inpSst" min="10" max="32" value="26" step="0.1">
+          <div class="hint">지역 관측 참조</div>
         </div>
         <div class="form-row">
-          <label>해수면 높이 이상 (cm, 평년 대비)</label>
+          <label>해수면 높이 이상 (cm)</label>
           <input type="number" id="inpSsh" min="-25" max="25" value="0" step="1">
-          <div class="hint">-25~+25 cm</div>
+          <div class="hint">-25~+25 (평년 대비)</div>
         </div>
         <div class="form-row">
-          <label>나의 가설 (학습지 기록)</label>
-          <textarea id="inpHypothesis" rows="2" placeholder="예: 수온이 28°C 이상으로 올라가면 동태평양에서 대류가 강해져 대기가 동쪽으로 순환할 것이다."></textarea>
+          <label>현재 시나리오</label>
+          <input type="text" id="inpScenario" value="엘니뇨 / 라니냬 중 선택" disabled
+                 style="opacity:.65; cursor:not-allowed;">
+          <div class="hint">게임 시작 시 결정됩니다</div>
         </div>
-      </div>
-
-      <div class="panel">
-        <h2>🏹 대기 순환 방향 예측 (화살표)</h2>
-        <div class="dir-grid" id="dirGrid"></div>
-        <button class="btn gold" id="btnMove" onclick="submitMove()">예측 제출 →</button>
-        <div id="feedback"></div>
-      </div>
-
-      <div class="panel">
-        <h2>💾 기록</h2>
-        <button class="btn secondary" onclick="exportWorksheet()">📄 학습지 내보내기 (.md)</button>
-        <button class="btn secondary" onclick="downloadSave()">💾 세이브 파일 저장</button>
-        <button class="btn secondary" onclick="resetGame()">🔄 새로 시작</button>
+        <div class="form-row full">
+          <label>나의 가설 (학습지 기록)</label>
+          <textarea id="inpHypothesis" rows="2" placeholder="예: 수온이 높은 쪽으로 대기가 이동하며, 그 방향을 따라 순환이 이어질 것이다."></textarea>
+        </div>
       </div>
     </div>
-  </section>
+
+    <div class="panel">
+      <h2>🏹 대기 순환 방향 예측</h2>
+      <div class="dir-grid" id="dirGrid"></div>
+      <button class="btn gold" onclick="submitMove()">예측 제출 →</button>
+      <div id="feedback"></div>
+    </div>
+
+    <div class="panel">
+      <h2>💾 기록</h2>
+      <button class="btn secondary" onclick="exportWorksheet()">📄 학습지 내보내기 (.md)</button>
+      <button class="btn secondary" onclick="downloadSave()">💾 세이브 파일 저장</button>
+      <button class="btn secondary" onclick="resetGame()">🔄 새로 시작</button>
+    </div>
+  </div>
 </main>
 
 <!-- 도달 결과 모달 -->
 <div id="modal">
   <div class="modal-card">
     <h2>🎉 한반도 도달! 남방진동의 영향 분석</h2>
-    <p id="modalText" style="font-size:.88rem; line-height:1.6;"></p>
+    <p id="modalText" style="font-size:.86rem; line-height:1.6;"></p>
     <table class="impact-table" id="impactTable"></table>
-    <p style="font-size:.8rem; color:#b8cde0;">학습지에 시뮬레이션 결과를 표기하고, 실제 관측 데이터와 다른 부분과 그 이유(모형의 한계)를 토론해 보세요.</p>
-    <button class="btn" style="margin-top:14px;" onclick="closeModal()">확인</button>
+    <p style="font-size:.78rem; color:#b8cde0;">학습지에 시뮬레이션 결과를 표기하고, 실제 관측 데이터와 다른 부분과 그 이유(모형의 한계)를 토론해 보세요.</p>
+    <button class="btn" style="margin-top:12px;" onclick="closeModal()">확인</button>
   </div>
 </div>
 
@@ -251,47 +312,124 @@
 <script>
 'use strict';
 const C = window.ClimateCore;
-const SAVE_KEY = 'climate-civ-save-v1';
+const SAVE_KEY = 'climate-civ-save-v2';
 let G = null;
 let selectedDir = null;
 
-// 지도 투상: 등장방형. SVG viewBox 1440x720 (4px/도)
-// 경도 -180°→x=0, 위도 90°→y=0
 function lonLatToXY(lon, lat) {
   return { x: (lon + 180) * 4, y: (90 - lat) * 4 };
 }
-// 타일 → 지도 좌표
 function tileToXY(pos) {
   return lonLatToXY(C.lonOf(pos.col), C.latOf(pos.row));
 }
+function fmtLat(lat) { return Math.abs(lat) + '°' + (lat >= 0 ? 'N' : 'S'); }
+function fmtLon(lon) { return Math.abs(lon) + '°' + (lon >= 0 ? 'E' : 'W'); }
 
-function buildStartButtons() {
-  const layer = document.getElementById('startPoints');
+// ===== 클릭 가능한 격자 지점 =====
+function buildClickDots() {
+  const layer = document.getElementById('clickLayer');
   layer.innerHTML = '';
-  for (const key of ['A', 'B']) {
-    const sp = C.START_POINTS[key];
-    const { x, y } = tileToXY(sp);
-    const btn = document.createElement('button');
-    btn.className = 'sp-btn';
-    btn.textContent = (key === 'A' ? 'A: 칠레 연안' : 'B: 호주 북동쪽');
-    btn.style.left = (x / 1440 * 100) + '%';
-    btn.style.top = (y / 720 * 100) + '%';
-    btn.onclick = () => startGame(key);
-    layer.appendChild(btn);
+  for (let r = 0; r < C.GRID_ROWS; r++) {
+    for (let c = 0; c < C.GRID_COLS; c++) {
+      const { x, y } = lonLatToXY(C.lonOf(c), C.latOf(r));
+      const dot = document.createElement('div');
+      dot.className = 'grid-dot';
+      if (r === C.KOREA.row && c === C.KOREA.col) dot.classList.add('kd');
+      if ((r === C.START_POINTS.A.row && c === C.START_POINTS.A.col) ||
+          (r === C.START_POINTS.B.row && c === C.START_POINTS.B.col)) dot.classList.add('start');
+      dot.style.left = (x / 1440 * 100) + '%';
+      dot.style.top = (y / 720 * 100) + '%';
+      dot.title = C.REGION_NAMES[r + ',' + c] || '';
+      dot.onclick = (e) => { e.stopPropagation(); showRegionCard(r, c, e); };
+      layer.appendChild(dot);
+    }
   }
 }
 
+function showRegionCard(row, col, e) {
+  const sc = (G && C.SCENARIOS[G.scenario]) ? G.scenario : 'elnino';
+  const info = C.regionInfo(row, col, sc);
+  const card = document.getElementById('regionCard');
+  document.getElementById('rcName').textContent =
+    (info.land ? '🌿 ' : '🌊 ') + info.name;
+  document.getElementById('rcCoords').textContent =
+    fmtLat(info.lat) + ', ' + fmtLon(info.lon) + ' · [' + info.scenarioLabel + ' 상황]';
+  document.getElementById('rcObs').textContent = info.obsText;
+
+  // 카드 위치: 클릭 지점 근처, 지도 밖으로 나가지 않게
+  const wrap = document.getElementById('mapWrap');
+  const wr = wrap.getBoundingClientRect();
+  let cx = (e || window.event).clientX - wr.left + 14;
+  let cy = (e || window.event).clientY - wr.top - 10;
+  card.style.display = 'block'; // 측정 위해 먼저 표시
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  if (cx + cw > wr.width - 8) cx = wr.width - cw - 8;
+  if (cy + ch > wr.height - 8) cy = wr.height - ch - 8;
+  if (cy < 8) cy = 8;
+  card.style.left = cx + 'px';
+  card.style.top = cy + 'px';
+  card.classList.add('show');
+}
+function hideRegionCard() {
+  document.getElementById('regionCard').classList.remove('show');
+  document.getElementById('regionCard').style.display = 'none';
+}
+
+// ===== 시작 화면 =====
+function buildStartButtons() {
+  const box = document.getElementById('startBtns');
+  box.innerHTML = '';
+  for (const key of ['A', 'B']) {
+    const sp = C.START_POINTS[key];
+    const btn = document.createElement('button');
+    btn.className = 'scenario-btn';
+    btn.textContent = (key === 'A' ? '🅰 칠레 연안 (동태평양)' : '🅱 호주 북동쪽 (서태평양)');
+    btn.onclick = () => chooseScenario(key);
+    box.appendChild(btn);
+  }
+}
+function chooseScenario(startKey) {
+  const box = document.getElementById('startBtns');
+  box.innerHTML = '';
+  const label = startKey === 'A'
+    ? '🅰 칠레 연안에서 시작합니다. 이번 남방진동의 상태를 선택하세요:'
+    : '🅱 호주 북동쪽에서 시작합니다. 이번 남방진동의 상태를 선택하세요:';
+  const p = document.createElement('p');
+  p.style.cssText = 'font-size:.82rem;color:#ffd97a;font-weight:bold;margin:8px 0;';
+  p.textContent = label;
+  box.appendChild(p);
+  for (const sc of ['elnino', 'lanina']) {
+    const btn = document.createElement('button');
+    btn.className = 'scenario-btn';
+    btn.innerHTML = sc === 'elnino'
+      ? '🔥 엘니뇨 상황'
+      : '❄️ 라니냬 상황';
+    btn.title = C.SCENARIOS[sc].desc;
+    btn.onclick = () => startGame(startKey, sc);
+    box.appendChild(btn);
+  }
+}
+
+function startGame(startKey, scenarioKey) {
+  G = C.newGame(startKey, scenarioKey);
+  selectedDir = null;
+  document.getElementById('startOverlay').classList.add('hidden');
+  document.getElementById('inpScenario').value = C.SCENARIOS[scenarioKey].label + ' 상황';
+  hideRegionCard();
+  saveGame(); render();
+}
+
+// ===== 지도 렌더링 =====
 function render() {
   const ov = document.getElementById('overlay');
   const ns = 'http://www.w3.org/2000/svg';
   ov.innerHTML = '';
   ov.setAttribute('viewBox', '0 0 1440 720');
-
   if (!G) return;
 
   const ARROW = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' };
 
-  // 1. 경로 선 (지도상 대권은 아니지만 타일 중심을 직선으로 연결)
+  // 경로 선
   if (G.path.length > 1) {
     let d = '';
     G.path.forEach((p, i) => {
@@ -301,91 +439,81 @@ function render() {
     const path = document.createElementNS(ns, 'path');
     path.setAttribute('d', d);
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', 'rgba(255,215,0,.35)');
-    path.setAttribute('stroke-width', '5');
+    path.setAttribute('stroke', 'rgba(255,215,0,.4)');
+    path.setAttribute('stroke-width', '6');
     path.setAttribute('stroke-linecap', 'round');
     ov.appendChild(path);
   }
 
-  // 2. 각 이동 구간 화살표 (중간 지점에 방향 문자)
+  // 화살표
   for (let i = 1; i < G.path.length; i++) {
     const from = tileToXY(G.path[i - 1]);
     const to = tileToXY(G.path[i]);
     const dir = C.dirFromDelta(G.path[i].row - G.path[i - 1].row, G.path[i].col - G.path[i - 1].col);
     const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
     const t = document.createElementNS(ns, 'text');
-    t.setAttribute('x', mx); t.setAttribute('y', my + 8);
+    t.setAttribute('x', mx); t.setAttribute('y', my + 10);
     t.setAttribute('text-anchor', 'middle');
-    t.setAttribute('font-size', '30');
+    t.setAttribute('font-size', '34');
     t.setAttribute('fill', '#ffd700');
     t.setAttribute('stroke', '#000');
-    t.setAttribute('stroke-width', '.8');
+    t.setAttribute('stroke-width', '1');
     t.setAttribute('paint-order', 'stroke');
     t.textContent = ARROW[dir.key];
     ov.appendChild(t);
   }
 
-  // 3. 기압 원 (빨강/파랑, 반경 = 강도)
+  // 기압 원
   G.pressureMarks.forEach(m => {
     const { x, y } = tileToXY(m);
-    const r = 14 + Math.min(16, Math.abs(m.value) * 6);
+    const r = 16 + Math.min(18, Math.abs(m.value) * 8);
     const circle = document.createElementNS(ns, 'circle');
     circle.setAttribute('cx', x); circle.setAttribute('cy', y);
     circle.setAttribute('r', r);
-    circle.setAttribute('fill', m.color === 'red' ? 'rgba(220,60,40,.45)' :
-                          m.color === 'blue' ? 'rgba(50,110,230,.45)' : 'rgba(160,160,160,.4)');
+    circle.setAttribute('fill', m.color === 'red' ? 'rgba(220,60,40,.4)' :
+                          m.color === 'blue' ? 'rgba(50,110,230,.4)' : 'rgba(160,160,160,.35)');
     circle.setAttribute('stroke', m.color === 'red' ? '#ff6a4a' :
                           m.color === 'blue' ? '#5a90ff' : '#aaa');
     circle.setAttribute('stroke-width', '2');
     ov.appendChild(circle);
     const label = document.createElementNS(ns, 'text');
-    label.setAttribute('x', x); label.setAttribute('y', y + 4);
+    label.setAttribute('x', x); label.setAttribute('y', y + 5);
     label.setAttribute('text-anchor', 'middle');
-    label.setAttribute('font-size', '13');
+    label.setAttribute('font-size', '14');
     label.setAttribute('font-weight', 'bold');
     label.setAttribute('fill', '#fff');
     label.textContent = (m.value > 0 ? '+' : '') + m.value;
     ov.appendChild(label);
   });
 
-  // 4. 현재 위치 마커 (깜빡이는 금색 원)
+  // 현재 위치
   const cur = tileToXY(G.pos);
   const marker = document.createElementNS(ns, 'circle');
   marker.setAttribute('cx', cur.x); marker.setAttribute('cy', cur.y);
-  marker.setAttribute('r', '12');
+  marker.setAttribute('r', '13');
   marker.setAttribute('fill', '#ffd700');
   marker.setAttribute('stroke', '#fff');
   marker.setAttribute('stroke-width', '3');
-  marker.innerHTML = '<animate attributeName="r" values="10;16;10" dur="1.6s" repeatCount="indefinite"/>';
+  marker.innerHTML = '<animate attributeName="r" values="11;18;11" dur="1.6s" repeatCount="indefinite"/>';
   ov.appendChild(marker);
-
-  // 한국 타일 강조
-  const k = tileToXY(C.KOREA);
-  const koreaRing = document.createElementNS(ns, 'circle');
-  koreaRing.setAttribute('cx', k.x); koreaRing.setAttribute('cy', k.y);
-  koreaRing.setAttribute('r', '16');
-  koreaRing.setAttribute('fill', 'none');
-  koreaRing.setAttribute('stroke', '#ffd700');
-  koreaRing.setAttribute('stroke-width', '2');
-  koreaRing.setAttribute('stroke-dasharray', '6 4');
-  ov.appendChild(koreaRing);
 
   // HUD
   document.getElementById('hudTurn').textContent = G.turn;
   document.getElementById('hudScore').textContent = G.score;
   document.getElementById('hudPos').textContent =
-    `${Math.abs(C.latOf(G.pos.row))}°${C.latOf(G.pos.row) >= 0 ? 'N' : 'S'}, ` +
-    `${Math.abs(C.lonOf(G.pos.col))}°${C.lonOf(G.pos.col) >= 0 ? 'E' : 'W'}`;
+    fmtLat(C.latOf(G.pos.row)) + ' ' + fmtLon(C.lonOf(G.pos.col));
   document.getElementById('hudBadges').innerHTML =
     G.badges.map(b => `<span class="badge">${b}</span>`).join('');
 
   // 로그
   const logEl = document.getElementById('log');
   logEl.innerHTML = G.log.map(e => {
-    if (e.type === 'fail') return `<div class="log-entry fail"><span class="turn-tag">T${e.turn}</span> ❌ ${e.dir} — ${e.msg}<br><span style="color:#d0a890;">실패 경험: 위 피드백 이유를 학습지에 기록하세요.</span></div>`;
+    const pos = e.at ? fmtLat(C.latOf(e.at.row)) + ' ' + fmtLon(C.lonOf(e.at.col))
+              : e.to ? fmtLat(C.latOf(e.to.row)) + ' ' + fmtLon(C.lonOf(e.to.col)) : '';
+    if (e.type === 'fail') return `<div class="log-entry fail"><span class="turn-tag">T${e.turn}</span> ❌ ${e.dir} — ${pos}${e.hint ? ' → 힌트: <b>' + e.hint + '</b> 방향' : ''}<br><span style="color:#d0a890;">실패 이유를 학습지에 기록하세요.</span></div>`;
     if (e.type === 'move') {
       const f = e.forecast;
-      return `<div class="log-entry move"><span class="turn-tag">T${e.turn}</span> ➡ ${e.dir} → ${Math.abs(C.latOf(e.to.row))}°${C.latOf(e.to.row)>=0?'N':'S'} ${Math.abs(C.lonOf(e.to.col))}°${C.lonOf(e.to.col)>=0?'E':'W'} [${f.scenario==='elnino'?'엘니뇨':f.scenario==='lanina'?'라니냬':'중립'}]<br>기압 ${fmt(f.pressureAnomaly)} hPa · 기온 ${fmt(f.tempAnomaly)} °C · 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}% (평년 대비)</div>`;
+      return `<div class="log-entry move"><span class="turn-tag">T${e.turn}</span> ➡ ${e.dir} → ${pos} [${f.scenario === 'elnino' ? '엘니뇨' : '라니냬'}]<br>${e.note}<br><span style="color:#9fd0f5;">한반도 예측: 기압 ${fmt(f.pressureAnomaly)} hPa · 기온 ${fmt(f.tempAnomaly)} °C · 강수량 ${f.precipAnomaly > 0 ? '+' : ''}${f.precipAnomaly}%</span></div>`;
     }
     if (e.type === 'win') return `<div class="log-entry win">🏆 ${e.msg}</div>`;
     return '';
@@ -402,68 +530,61 @@ function buildDirGrid() {
     b.className = 'dir-btn';
     b.textContent = { N:'북 ↑', NE:'북동 ↗', E:'동 →', SE:'남동 ↘', S:'남 ↓', SW:'남서 ↙', W:'서 ←', NW:'북서 ↖' }[d.key];
     b.dataset.key = d.key;
-    b.onclick = () => selectDir(d.key, b);
+    b.onclick = () => selectDir(d.key);
     grid.appendChild(b);
   });
 }
-
-function selectDir(key, btn) {
+function selectDir(key) {
   document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  document.querySelector(`.dir-btn[data-key="${key}"]`).classList.add('active');
   selectedDir = key;
 }
 
-function readObs() {
-  return {
-    pressure: parseFloat(document.getElementById('inpPressure').value),
-    sst: parseFloat(document.getElementById('inpSst').value),
-    ssh: parseFloat(document.getElementById('inpSsh').value),
-  };
-}
-
-function showFeedback(evaluation) {
+function showFeedback(evaluation, note) {
   const fb = document.getElementById('feedback');
   fb.className = evaluation.valid ? 'ok' : 'bad';
-  fb.innerHTML = `<h3>${evaluation.valid ? '✅' : '❌'} ${evaluation.feedback.title}</h3><p>${evaluation.feedback.body}</p>`;
+  const icon = evaluation.valid ? '✅' : '❌';
+  let body = evaluation.valid
+    ? `<p>대기가 ${dirLabel(selectedDir)} 방향으로 이동했습니다.</p>${note ? `<p style="margin-top:4px;">🔬 ${note}</p>` : ''}`
+    : `<p>대기 순환이 그 방향으로 흐르지 않습니다. 관측 데이터(지도 ● 클릭)를 다시 살펴보세요.</p>${evaluation.hint ? `<p style="margin-top:4px;">💡 힌트: <b>${evaluation.hint}</b> 방향을 생각해 보세요.</p>` : ''}`;
+  fb.innerHTML = `<h3>${icon} ${evaluation.valid ? '타당한 예측' : '예측 실패'}</h3>${body}`;
+}
+function dirLabel(key) {
+  return { N:'북', NE:'북동', E:'동', SE:'남동', S:'남', SW:'남서', W:'서', NW:'북서' }[key] || key;
 }
 
 function submitMove() {
   if (!G || G.status !== 'playing') return;
   if (!selectedDir) { alert('화살표 방향을 먼저 선택하세요.'); return; }
-  const obs = readObs();
-  if ([obs.pressure, obs.sst, obs.ssh].some(v => isNaN(v))) { alert('관측 데이터를 모두 입력하세요.'); return; }
   const hyp = document.getElementById('inpHypothesis').value.trim();
   if (hyp && !G.hypotheses.includes(hyp)) G.hypotheses += (G.hypotheses ? '\n' : '') + hyp;
 
-  const res = C.tryMove(G, obs, selectedDir);
-  showFeedback(res.evaluation);
-
-  if (res.ok && G.status === 'won') {
-    G.log.push({ type: 'win', msg: '한반도 도달! 남방진동의 영향을 확인했습니다.' });
-  }
+  const res = C.tryMove(G, selectedDir);
+  showFeedback(res.evaluation, res.evaluation.note);
   selectedDir = null;
   document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
-  saveGame();
-  render();
+  saveGame(); render();
   if (G.status === 'won') openModal();
 }
 
 function openModal() {
   const imp = G.finalImpact;
-  const scenLabel = imp.scenario === 'elnino' ? '엘니뇨' : imp.scenario === 'lanina' ? '라니냬' : '중립';
+  const scenLabel = imp.scenarioLabel;
   document.getElementById('modalText').innerHTML =
-    `당신의 화살표가 한반도에 도달했습니다. 이번 시뮬레이션의 대기·해양 상태는 <b>${scenLabel}</b>로 식별되었습니다.<br>` +
-    `${scenLabel === '엘니뇨' ? '엘니뇨 시 동태평양 수온 상승으로 대류 중심이 동쪽으로 이동하고, 이는 원격 상관(teleconnection)을 통해 한반도 겨울 날씨(기온 상승 경향)에 영향을 줍니다.' : scenLabel === '라니냬' ? '라니냬 시 서태평양 대류가 강화되고, 원격 상관을 통해 한반도 겨울 기온이 평년보다 낮아지고 강수량 변화가 나타날 수 있습니다.' : '중립 상태에서는 남방진동의 신호가 약해 한반도 기후에 뚜렷한 영향이 나타나지 않습니다.'}`;
+    `당신의 화살표가 한반도에 도달했습니다. 이번 시뮬레이션은 <b>${scenLabel}</b> 상황이었습니다.<br>` +
+    (imp.scenario === 'elnino'
+      ? '엘니뇨 시 동태평양 수온 상승으로 대류 중심이 동쪽으로 이동하고, 이는 원격 상관(teleconnection)을 통해 한반도 겨울 날씨(기온 상승 경향)에 영향을 줍니다.'
+      : '라니냬 시 서태평양 대류가 강화되고, 원격 상관을 통해 한반도 겨울 기온이 평년보다 낮아지고 강수량 변화가 나타날 수 있습니다.');
   const tbl = document.getElementById('impactTable');
   tbl.innerHTML = `<tr><th>항목</th><th>평년 대비 변화</th><th>해석</th></tr>
-    <tr><td>대기압</td><td class="${imp.pressureAnomaly>0?'up':imp.pressureAnomaly<0?'down':''}">${fmt(imp.pressureAnomaly)} hPa</td><td>${imp.pressureAnomaly>0?'고기압성 경향':imp.pressureAnomaly<0?'저기압성 경향':'변화 없음'}</td></tr>
-    <tr><td>기온</td><td class="${imp.tempAnomaly>0?'up':'down'}">${fmt(imp.tempAnomaly)} °C</td><td>${imp.tempAnomaly>0?'평년보다 따뜻함':'평년보다 쌀쌀함'}</td></tr>
-    <tr><td>강수량</td><td class="${imp.precipAnomaly>0?'up':'down'}">${imp.precipAnomaly>0?'+':''}${imp.precipAnomaly}%</td><td>${imp.precipAnomaly>0?'평년보다 많음(강수 초과)':'평년보다 적음(강수 부족)'}</td></tr>`;
+    <tr><td>대기압</td><td class="${imp.pressureAnomaly > 0 ? 'up' : 'down'}">${fmt(imp.pressureAnomaly)} hPa</td><td>${imp.pressureAnomaly > 0 ? '고기압성 경향' : '저기압성 경향'}</td></tr>
+    <tr><td>기온</td><td class="${imp.tempAnomaly > 0 ? 'up' : 'down'}">${fmt(imp.tempAnomaly)} °C</td><td>${imp.tempAnomaly > 0 ? '평년보다 따뜻함' : '평년보다 쌀쌀함'}</td></tr>
+    <tr><td>강수량</td><td class="${imp.precipAnomaly > 0 ? 'up' : 'down'}">${imp.precipAnomaly > 0 ? '+' : ''}${imp.precipAnomaly}%</td><td>${imp.precipAnomaly > 0 ? '평년보다 많음' : '평년보다 적음'}</td></tr>`;
   document.getElementById('modal').classList.add('show');
 }
 function closeModal() { document.getElementById('modal').classList.remove('show'); }
 
-// ===== 저장 =====
+// ===== 저장 (v2) =====
 function saveGame() {
   if (!G) return;
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {}
@@ -471,28 +592,35 @@ function saveGame() {
 function loadGame() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
-    if (raw) { const g = JSON.parse(raw); if (g && g.pos && g.path) return g; }
+    if (raw) {
+      const g = JSON.parse(raw);
+      // 유효성: 새 포맷 필수 필드 확인
+      if (g && g.routeId && g.pos && g.path && C.SCENARIOS[g.scenario]) return g;
+    }
   } catch (e) {}
   return null;
-}
-function startGame(startKey) {
-  G = C.newGame(startKey);
-  selectedDir = null;
-  document.getElementById('startScreen').classList.add('hidden');
-  document.getElementById('gameScreen').classList.remove('hidden');
-  document.getElementById('startPoints').innerHTML = '';
-  saveGame(); render();
 }
 function resetGame() {
   if (!confirm('모든 기록을 지우고 새로 시작할까요?')) return;
   try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
   G = null;
-  document.getElementById('gameScreen').classList.add('hidden');
-  document.getElementById('startScreen').classList.remove('hidden');
+  selectedDir = null;
+  document.getElementById('startOverlay').classList.remove('hidden');
   document.getElementById('feedback').className = '';
+  document.getElementById('feedback').innerHTML = '';
+  document.getElementById('inpScenario').value = '';
   buildStartButtons();
+  render();
+  // 빈 지도 상태로 오버레이 초기화
+  document.getElementById('overlay').innerHTML = '';
+  document.getElementById('hudTurn').textContent = '0';
+  document.getElementById('hudScore').textContent = '0';
+  document.getElementById('hudPos').textContent = '—';
+  document.getElementById('hudBadges').innerHTML = '';
+  document.getElementById('log').innerHTML = '';
 }
 function downloadSave() {
+  if (!G) { alert('저장할 진행 기록이 없습니다.'); return; }
   const blob = new Blob([JSON.stringify(G, null, 2)], { type: 'application/json' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -500,28 +628,28 @@ function downloadSave() {
   a.click(); URL.revokeObjectURL(a.href);
 }
 function exportWorksheet() {
-  if (!G) return;
-  const scen = G.observations.length ? G.observations[G.observations.length - 1].scenario : 'neutral';
-  const scenLabel = scen === 'elnino' ? '엘니뇨' : scen === 'lanina' ? '라니냬' : '중립';
+  if (!G) { alert('진행 기록이 없습니다.'); return; }
+  const scenLabel = C.SCENARIOS[G.scenario].label;
   let md = `# 기후 문명 학습지 — 남방진동이 한반도에 미치는 영향\n\n`;
-  md += `- 시작 지점: ${G.startKey === 'A' ? 'A: 동태평양 (칠레 연안)' : 'B: 서태평양 (오스트레일리아 북동쪽)'}\n`;
-  md += `- 최종 식별된 시나리오: ${scenLabel}\n- 턴 수: ${G.turn} / 점수: ${G.score}\n`;
+  md += `- 시작 지점: ${G.startKey === 'A' ? 'A: 칠레 연안 (동태평양)' : 'B: 오스트레일리아 북동쪽 (서태평양)'}\n`;
+  md += `- 시나리오: ${scenLabel}\n- 턴 수: ${G.turn} / 점수: ${G.score}\n`;
   md += `- 배지: ${G.badges.length ? G.badges.join(', ') : '없음'}\n\n`;
   md += `## 나의 가설\n${G.hypotheses || '(기록 없음)'}\n\n`;
   md += `## 화살표 경로 (경·위도)\n${G.path.map((p, i) =>
-    `${i === 0 ? '시작' : i}: ${Math.abs(C.latOf(p.row))}°${C.latOf(p.row) >= 0 ? 'N' : 'S'}, ${Math.abs(C.lonOf(p.col))}°${C.lonOf(p.col) >= 0 ? 'E' : 'W'}`
+    `${i === 0 ? '시작' : i}: ${fmtLat(C.latOf(p.row))}, ${fmtLon(C.lonOf(p.col))}`
   ).join(' → ')}\n\n`;
   md += `## 실패 경험 기록\n`;
   if (G.failures.length === 0) md += `(실패 없음)\n`;
-  else G.failures.forEach(f => { md += `- [턴 ${f.turn}] 방향 ${f.dir} — ${f.reason}\n  - ${f.lesson}\n`; });
-  md += `\n## 예측·기후 변화 관측 기록\n`;
+  else G.failures.forEach(f => {
+    md += `- [턴 ${f.turn}] ${f.dir} 방향 시도${f.hint ? ' → 힌트(${f.hint} 방향) 수집' : ''}\n`;
+  });
+  md += `\n## 대기 순환 관측 기록\n`;
   G.log.filter(e => e.type === 'move').forEach(e => {
-    const f = e.forecast;
-    md += `- T${e.turn} ${e.dir} → ${Math.abs(C.latOf(e.to.row))}°${C.latOf(e.to.row)>=0?'N':'S'} ${Math.abs(C.lonOf(e.to.col))}°${C.lonOf(e.to.col)>=0?'E':'W'}: 기압 ${fmt(f.pressureAnomaly)} hPa, 기온 ${fmt(f.tempAnomaly)} °C, 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}%\n`;
+    md += `- T${e.turn} ${e.dir} → ${fmtLat(C.latOf(e.to.row))} ${fmtLon(C.lonOf(e.to.col))}: ${e.note}\n`;
   });
   if (G.finalImpact) {
     const i2 = G.finalImpact;
-    md += `\n## 한반도 영향 분석\n- 대기압 ${fmt(i2.pressureAnomaly)} hPa\n- 기온 ${fmt(i2.tempAnomaly)} °C\n- 강수량 ${i2.precipAnomaly>0?'+':''}${i2.precipAnomaly}%\n\n### 토론: 시뮬레이션 결과가 실제 관측 데이터와 다른 부분과 그 이유(모형의 한계)\n(여기에 작성)\n`;
+    md += `\n## 한반도 영향 분석 (${i2.scenarioLabel})\n- 대기압 ${fmt(i2.pressureAnomaly)} hPa\n- 기온 ${fmt(i2.tempAnomaly)} °C\n- 강수량 ${i2.precipAnomaly > 0 ? '+' : ''}${i2.precipAnomaly}%\n\n### 토론: 시뮬레이션 결과가 실제 관측 데이터와 다른 부분과 그 이유(모형의 한계)\n(여기에 작성)\n`;
   }
   const blob = new Blob([md], { type: 'text/markdown' });
   const a = document.createElement('a');
@@ -530,17 +658,17 @@ function exportWorksheet() {
   a.click(); URL.revokeObjectURL(a.href);
 }
 
-// 초기화
+// ===== 초기화 =====
+buildClickDots();
 buildDirGrid();
+buildStartButtons();
 const saved = loadGame();
 if (saved) {
   G = saved;
-  document.getElementById('startScreen').classList.add('hidden');
-  document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('startOverlay').classList.add('hidden');
+  document.getElementById('inpScenario').value = C.SCENARIOS[G.scenario].label + ' 상황';
   document.getElementById('inpHypothesis').value = saved.hypotheses || '';
   render();
-} else {
-  buildStartButtons();
 }
 </script>
 </body>
