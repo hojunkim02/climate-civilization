@@ -179,6 +179,7 @@
       badges: [],
       path: [{ row: start.row, col: start.col }],
       pressureMarks: [],
+      predictions: [],
       failures: [],
       hypotheses: '',
       log: [],
@@ -231,7 +232,7 @@
     return pos.row === KOREA.row && pos.col === KOREA.col;
   }
 
-  function tryMove(state, dirKey) {
+  function tryMove(state, dirKey, reason) {
     var d = DIRECTIONS.find(function (x) { return x.key === dirKey; });
     if (!d) return { ok: false, error: 'invalid_dir' };
     if (state.status !== 'playing') return { ok: false, error: 'game_over' };
@@ -241,11 +242,25 @@
 
     var evalRes = evaluateDir(state, dirKey);
 
+    // 예측 기록: 방향 + 학생이 작성한 예측 이유 + 결과
+    var prediction = {
+      turn: state.turn,
+      dir: dirKey,
+      dirLabel: d.label,
+      reason: (reason || '').trim(),
+      valid: evalRes.valid,
+      at: { row: state.pos.row, col: state.pos.col },
+      note: evalRes.note || '',
+      hint: evalRes.hint || '',
+    };
+    state.predictions.push(prediction);
+
     if (!evalRes.valid) {
       state.failStreak += 1;
       state.failures.push({
         turn: state.turn,
         dir: dirKey,
+        reason: prediction.reason,
         at: { row: state.pos.row, col: state.pos.col },
         hint: evalRes.hint,
       });
