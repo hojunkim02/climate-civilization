@@ -57,20 +57,18 @@ res = C.tryMove(G, laninaObs, 'W');
 assert.ok(!res.ok);
 assert.strictEqual(res.error, 'out_of_bounds');
 
-// --- 전체 경로: 시작 A(4,1)에서 한국(1,7)까지 시나리오를 바꿔가며 진행 ---
+// --- 전체 경로: 시작 A(4,1)에서 한국(1,8)까지 시나리오를 바꿔가며 진행 ---
 G = C.newGame('A');
-// 북동쪽으로 진행하려면 중립 관측이 필요하다.
-const steps = ['NE','NE','NE','NE','NE','E'];
-// 중립 관측 → N/NE/NW 타당. 경로: (4,1)→(3,2)→(2,3)→(1,4)... 하지만 (1,4)에서 한국(1,7)까지 NE로는 row 0으로 빗나감.
-// 순서를 재설계: N/NE/NW 조합으로 (4,1)→한국(1,7) 도달 경로
-// (4,1) NE→(3,2) NE→(2,3) NE→(1,4) E는 중립에서 불가 → 관측을 엘니뇨로 바꾸면 E/NE/SE 타당.
+// 중립 관측 → N/NE/NW 타당. 경로: (4,1) NE→(3,2) NE→(2,3) NE→(1,4) ...
+// (1,4) 이후는 관측을 엘니뇨로 바꾸면 E/NE/SE 타당 → 동쪽으로 진행해 한국(1,8) 도달.
 const plan = [
   { obs: neutralObs, dir: 'NE' }, // (3,2)
   { obs: neutralObs, dir: 'NE' }, // (2,3)
   { obs: neutralObs, dir: 'NE' }, // (1,4)
   { obs: elninoObs, dir: 'E'  },  // (1,5)
   { obs: elninoObs, dir: 'E'  },  // (1,6)
-  { obs: elninoObs, dir: 'E'  },  // (1,7) = KOREA
+  { obs: elninoObs, dir: 'E'  },  // (1,7)
+  { obs: elninoObs, dir: 'E'  },  // (1,8) = KOREA
 ];
 let last;
 for (const step of plan) {
@@ -79,7 +77,7 @@ for (const step of plan) {
 }
 assert.strictEqual(G.status, 'won');
 assert.ok(C.reachedKorea(G.pos));
-assert.strictEqual(G.score, 10 * 6 + 50);
+assert.strictEqual(G.score, 10 * 7 + 50);
 assert.ok(G.badges.includes('한반도 도달'));
 assert.ok(G.badges.includes('무실패 예측'));
 assert.ok(G.finalImpact);
@@ -97,12 +95,20 @@ assert.strictEqual(f.tempAnomaly > 0, true);
 assert.strictEqual(f.precipAnomaly < 0, true);
 
 // --- 지도 헬퍼 ---
-assert.strictEqual(C.tileTypeAt(1, 7), 'korea');
+assert.strictEqual(C.tileTypeAt(1, 8), 'korea');
 assert.strictEqual(C.tileTypeAt(4, 1), 'startA');
-assert.strictEqual(C.tileTypeAt(3, 3), 'startB');
-assert.strictEqual(C.tileTypeAt(1, 0), 'mountain');
-assert.strictEqual(C.tileTypeAt(0, 0), 'land');
+assert.strictEqual(C.tileTypeAt(3, 5), 'startB');
+assert.strictEqual(C.tileTypeAt(1, 1), 'mountain');
+assert.strictEqual(C.tileTypeAt(0, 1), 'land');
 assert.strictEqual(C.tileTypeAt(2, 2), 'ocean');
+
+// --- 경·위도 매핑 헬퍼 ---
+assert.strictEqual(C.lonOf(8), 127);
+assert.strictEqual(C.latOf(1), 39);
+assert.strictEqual(C.lonOf(1), -75);   // A 지점 = 칠레 연안 경도
+assert.strictEqual(C.latOf(4), -39);  // A 지점 = 칠레 연안 위도
+assert.strictEqual(C.lonOf(5), 140); // B 지점 = 호주 북동쪽 경도
+assert.strictEqual(C.latOf(3), -13);  // B 지점 위도
 assert.strictEqual(C.inBounds({ row: 0, col: 0 }), true);
 assert.strictEqual(C.inBounds({ row: 6, col: 0 }), false);
 assert.strictEqual(C.dirFromDelta(-1, 1).key, 'NE');
@@ -110,6 +116,6 @@ assert.strictEqual(C.isAdjacent({ row: 4, col: 1 }, { row: 3, col: 2 }), true);
 
 // --- 시작 B 확인 ---
 const GB = C.newGame('B');
-assert.deepStrictEqual(GB.pos, { row: 3, col: 3 });
+assert.deepStrictEqual(GB.pos, { row: 3, col: 5 });
 
 console.log('✅ 모든 로직 테스트 통과 (' + new Date().toISOString() + ')');

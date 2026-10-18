@@ -38,8 +38,8 @@
     color: #241a00; font-size: .72rem; font-weight: bold;
     border-radius: 12px; padding: 3px 10px; box-shadow: 0 0 8px rgba(255,215,0,.4);
   }
-  main { display: grid; grid-template-columns: 1fr 360px; gap: 16px; padding: 16px 24px; max-width: 1280px; margin: 0 auto; }
-  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+  main { display: grid; grid-template-columns: 1fr 360px; gap: 16px; padding: 16px 24px; max-width: 1440px; margin: 0 auto; }
+  @media (max-width: 1000px) { main { grid-template-columns: 1fr; } }
 
   .panel {
     background: rgba(16,28,42,.92);
@@ -48,61 +48,26 @@
   }
   .panel h2 { font-size: .95rem; color: #9fd0f5; margin-bottom: 10px; border-left: 3px solid #7fc8ff; padding-left: 8px; }
 
-  /* ===== 지도 ===== */
-  #mapWrap { overflow-x: auto; }
-  #map {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 3px;
-    min-width: 620px;
+  /* ===== 실제 지도 ===== */
+  #mapWrap { position: relative; overflow: hidden; border-radius: 8px; border: 1px solid #34506b; }
+  #worldmap { display: block; width: 100%; height: auto; }
+  #overlay {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none;
   }
-  .tile {
-    position: relative;
-    aspect-ratio: 1.15 / 1;
-    border-radius: 6px;
-    border: 1px solid rgba(255,255,255,.08);
-    background: #0d1822;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    font-size: .78rem; transition: all .25s;
-    overflow: visible;
-    user-select: none;
+  #startPoints {
+    position: absolute; inset: 0; width: 100%; height: 100%;
   }
-  .tile.fog { background: #0d1822; color: #22364a; }
-  .tile.revealed { background: linear-gradient(160deg, #14304a, #0f2438); color: #cfe3f3; }
-  .tile.land.revealed { background: linear-gradient(160deg, #2e5233, #1d3a24); }
-  .tile.mountain.revealed { background: linear-gradient(160deg, #5a5148, #3a352f); }
-  .tile.korea.revealed {
-    background: linear-gradient(160deg, #b8860b, #8a6508);
-    font-weight: bold; box-shadow: 0 0 12px rgba(255,215,0,.5);
+  .sp-btn {
+    position: absolute; transform: translate(-50%, -50%);
+    background: rgba(106,79,160,.85); border: 2px solid #b8a0e8;
+    color: #fff; font-size: .72rem; font-weight: bold;
+    border-radius: 10px; padding: 4px 10px; cursor: pointer;
+    pointer-events: auto; white-space: nowrap; z-index: 5;
+    box-shadow: 0 0 10px rgba(150,120,220,.5);
+    transition: all .2s;
   }
-  .tile.startA.revealed, .tile.startB.revealed { background: linear-gradient(160deg, #6a4fa0, #4a3570); font-weight: bold; }
-  .tile.current {
-    outline: 3px solid #ffd700; outline-offset: 1px;
-    animation: pulse 1.6s infinite;
-    z-index: 2;
-  }
-  @keyframes pulse { 0%,100% { outline-color: #ffd700; } 50% { outline-color: #ff8c42; } }
-  .tile.path-step::after {
-    content: "•"; position: absolute; top: 2px; right: 5px;
-    color: #7fc8ff; font-size: .8rem;
-  }
-  .pressure-ring {
-    position: absolute; width: 58%; height: 58%;
-    border-radius: 50%; opacity: .85;
-    display: flex; align-items: center; justify-content: center;
-    font-size: .62rem; font-weight: bold; pointer-events: none;
-    border: 1px solid rgba(255,255,255,.4);
-  }
-  .pressure-ring.red { background: rgba(220,60,40,.55); color: #fff; }
-  .pressure-ring.blue { background: rgba(50,110,230,.55); color: #fff; }
-  .pressure-ring.gray { background: rgba(160,160,160,.4); color: #eee; }
-  .arrow-overlay {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.15rem; color: #ffd700; z-index: 3;
-    text-shadow: 0 0 6px #000; pointer-events: none;
-  }
+  .sp-btn:hover { background: rgba(140,110,200,.95); transform: translate(-50%, -50%) scale(1.1); }
   #mapLegend { font-size: .75rem; color: #9fb8cc; margin-top: 8px; display: flex; gap: 14px; flex-wrap: wrap; }
   .legend-item { display: flex; align-items: center; gap: 5px; }
   .dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; border: 1px solid rgba(255,255,255,.4); }
@@ -176,14 +141,6 @@
   .up { color: #ff8c6a; } .down { color: #7fc8ff; }
 
   .start-screen { text-align: center; }
-  .start-card {
-    background: linear-gradient(160deg, #14283e, #0d1c2c);
-    border: 1px solid #3b5a7a; border-radius: 12px;
-    padding: 18px; margin: 10px; cursor: pointer; transition: all .2s;
-  }
-  .start-card:hover { border-color: #ffd700; transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,.4); }
-  .start-card h3 { color: #9fd0f5; margin-bottom: 6px; }
-  .start-card p { font-size: .8rem; color: #b8cde0; }
   .hidden { display: none !important; }
   footer { text-align: center; font-size: .72rem; color: #6a8298; padding: 18px; }
 </style>
@@ -204,36 +161,29 @@
   <!-- 시작 화면 -->
   <section id="startScreen" class="panel start-screen">
     <h2>🧭 탐구 질문: 남방진동이 발생하면 한반도의 날씨는 어떻게 될까?</h2>
-    <p style="font-size:.85rem; color:#b8cde0; margin:10px 0 16px; line-height:1.6;">
-      세계지도 위에서 시작 지점을 선택하고, 관측 데이터를 입력해 대기 순환 방향을 화살표로 예측하세요.<br>
+    <p style="font-size:.85rem; color:#b8cde0; margin:10px 0 6px; line-height:1.6;">
+      실제 세계지도 위에서 시작 지점을 클릭하고, 관측 데이터를 입력해 대기 순환 방향을 화살표로 예측하세요.<br>
       예측이 타당하면 대기가 그 방향으로 이동하고, 틀리면 과학 개념 피드백을 받습니다.<br>
       화살표를 이어 🇰🇷 한반도에 도달하면 남방진동의 영향이 정리됩니다.
     </p>
-    <div class="start-card" onclick="startGame('A')">
-      <h3>🅰 기본 활동: 동태평양 (칠레 연안)</h3>
-      <p>남방진동 발생 지역 — 적도 태평양 동쪽에서 시작 (권장)</p>
-    </div>
-    <div class="start-card" onclick="startGame('B')">
-      <h3>🅱 심화 활동: 서태평양 (오스트레일리아 북동쪽)</h3>
-      <p>교사 지시에 따라 다른 시작 지점 선택 시 사용</p>
-    </div>
-    <p class="hint">진행 중인 기록이 있으면 자동으로 이어합니다.</p>
+    <p style="font-size:.78rem; color:#9fd0f5; margin-bottom:4px;">👇 아래 지도에서 시작 지점(A 또는 B)을 클릭하세요</p>
   </section>
 
   <!-- 게임 화면 -->
   <section id="gameScreen" class="hidden">
     <div style="display:grid; gap:16px;">
       <div class="panel">
-        <h2>🗺 세계지도 (태평양 중심)</h2>
-        <div id="mapWrap"><div id="map"></div></div>
+        <h2>🗺 실제 세계지도 (등장방형 투법)</h2>
+        <div id="mapWrap">
+          <img id="worldmap" src="worldmap.svg" alt="세계지도">
+          <svg id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div id="startPoints"></div>
+        </div>
         <div id="mapLegend">
-          <span class="legend-item"><span class="dot" style="background:#14304a;"></span>해양</span>
-          <span class="legend-item"><span class="dot" style="background:#2e5233;"></span>육지</span>
-          <span class="legend-item"><span class="dot" style="background:#5a5148;"></span>산지</span>
-          <span class="legend-item"><span class="dot" style="background:#b8860b;"></span>한국</span>
           <span class="legend-item"><span class="dot" style="background:rgba(220,60,40,.7);"></span>기압 상승</span>
           <span class="legend-item"><span class="dot" style="background:rgba(50,110,230,.7);"></span>기압 하강</span>
           <span class="legend-item"><span class="dot" style="background:#ffd700;"></span>현재 위치</span>
+          <span class="legend-item">🟣 시작 지점</span>
         </div>
       </div>
 
@@ -304,100 +254,128 @@ const C = window.ClimateCore;
 const SAVE_KEY = 'climate-civ-save-v1';
 let G = null;
 let selectedDir = null;
-let lastFeedbackType = null;
 
-const TILES = [];
-for (let r = 0; r < C.GRID_ROWS; r++) {
-  TILES.push([]);
-  for (let c = 0; c < C.GRID_COLS; c++) TILES[r].push(null);
+// 지도 투상: 등장방형. SVG viewBox 1440x720 (4px/도)
+// 경도 -180°→x=0, 위도 90°→y=0
+function lonLatToXY(lon, lat) {
+  return { x: (lon + 180) * 4, y: (90 - lat) * 4 };
+}
+// 타일 → 지도 좌표
+function tileToXY(pos) {
+  return lonLatToXY(C.lonOf(pos.col), C.latOf(pos.row));
 }
 
-const TILE_LABELS = {
-  ocean: '', land: '🌿', mountain: '⛰', korea: '🇰🇷 한국',
-  startA: 'A 칠레', startB: 'B 호주',
-};
-
-function buildMap() {
-  const map = document.getElementById('map');
-  map.innerHTML = '';
-  for (let r = 0; r < C.GRID_ROWS; r++) {
-    for (let c = 0; c < C.GRID_COLS; c++) {
-      const t = document.createElement('div');
-      t.className = 'tile fog';
-      t.dataset.row = r; t.dataset.col = c;
-      t.innerHTML = '<span class="tile-label"></span>';
-      map.appendChild(t);
-      TILES[r][c] = t;
-    }
-  }
-}
-
-function revealAround(pos) {
-  for (let dr = -1; dr <= 1; dr++) {
-    for (let dc = -1; dc <= 1; dc++) {
-      const p = { row: pos.row + dr, col: pos.col + dc };
-      if (C.inBounds(p)) {
-        const t = TILES[p.row][p.col];
-        const type = C.tileTypeAt(p.row, p.col);
-        t.classList.remove('fog');
-        t.classList.add('revealed', type);
-        if (type === 'ocean') t.classList.remove('land','mountain','korea','startA','startB');
-        t.querySelector('.tile-label').textContent = TILE_LABELS[type] || '';
-      }
-    }
+function buildStartButtons() {
+  const layer = document.getElementById('startPoints');
+  layer.innerHTML = '';
+  for (const key of ['A', 'B']) {
+    const sp = C.START_POINTS[key];
+    const { x, y } = tileToXY(sp);
+    const btn = document.createElement('button');
+    btn.className = 'sp-btn';
+    btn.textContent = (key === 'A' ? 'A: 칠레 연안' : 'B: 호주 북동쪽');
+    btn.style.left = (x / 1440 * 100) + '%';
+    btn.style.top = (y / 720 * 100) + '%';
+    btn.onclick = () => startGame(key);
+    layer.appendChild(btn);
   }
 }
 
 function render() {
-  // 전체 리셋 후 경로/표식/현재 위치 반영
-  for (let r = 0; r < C.GRID_ROWS; r++) {
-    for (let c = 0; c < C.GRID_COLS; c++) {
-      const t = TILES[r][c];
-      t.classList.remove('current','path-step');
-      t.querySelectorAll('.pressure-ring,.arrow-overlay').forEach(el => el.remove());
-    }
+  const ov = document.getElementById('overlay');
+  const ns = 'http://www.w3.org/2000/svg';
+  ov.innerHTML = '';
+  ov.setAttribute('viewBox', '0 0 1440 720');
+
+  if (!G) return;
+
+  const ARROW = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' };
+
+  // 1. 경로 선 (지도상 대권은 아니지만 타일 중심을 직선으로 연결)
+  if (G.path.length > 1) {
+    let d = '';
+    G.path.forEach((p, i) => {
+      const { x, y } = tileToXY(p);
+      d += (i === 0 ? 'M' : 'L') + x + ',' + y + ' ';
+    });
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', 'rgba(255,215,0,.35)');
+    path.setAttribute('stroke-width', '5');
+    path.setAttribute('stroke-linecap', 'round');
+    ov.appendChild(path);
   }
-  // 밝힐 타일
-  const seen = new Set();
-  G.path.forEach(p => {
-    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-      const q = { row: p.row + dr, col: p.col + dc };
-      if (C.inBounds(q)) seen.add(q.row + ',' + q.col);
-    }
-  });
-  for (const key of seen) {
-    const [r, c] = key.split(',').map(Number);
-    const t = TILES[r][c];
-    if (t.classList.contains('fog')) {
-      const type = C.tileTypeAt(r, c);
-      t.classList.remove('fog'); t.classList.add('revealed', type);
-      t.querySelector('.tile-label').textContent = TILE_LABELS[type] || '';
-    }
-  }
-  // 경로 점 + 화살표
+
+  // 2. 각 이동 구간 화살표 (중간 지점에 방향 문자)
   for (let i = 1; i < G.path.length; i++) {
-    const from = G.path[i - 1], to = G.path[i];
-    TILES[from.row][from.col].classList.add('path-step');
-    const d = C.dirFromDelta(to.row - from.row, to.col - from.col);
-    const ov = document.createElement('div');
-    ov.className = 'arrow-overlay';
-    ov.textContent = { N:'↑', NE:'↗', E:'→', SE:'↘', S:'↓', SW:'↙', W:'←', NW:'↖' }[d.key];
-    TILES[from.row][from.col].appendChild(ov);
+    const from = tileToXY(G.path[i - 1]);
+    const to = tileToXY(G.path[i]);
+    const dir = C.dirFromDelta(G.path[i].row - G.path[i - 1].row, G.path[i].col - G.path[i - 1].col);
+    const mx = (from.x + to.x) / 2, my = (from.y + to.y) / 2;
+    const t = document.createElementNS(ns, 'text');
+    t.setAttribute('x', mx); t.setAttribute('y', my + 8);
+    t.setAttribute('text-anchor', 'middle');
+    t.setAttribute('font-size', '30');
+    t.setAttribute('fill', '#ffd700');
+    t.setAttribute('stroke', '#000');
+    t.setAttribute('stroke-width', '.8');
+    t.setAttribute('paint-order', 'stroke');
+    t.textContent = ARROW[dir.key];
+    ov.appendChild(t);
   }
-  // 기압 원
+
+  // 3. 기압 원 (빨강/파랑, 반경 = 강도)
   G.pressureMarks.forEach(m => {
-    const ring = document.createElement('div');
-    ring.className = 'pressure-ring ' + m.color;
-    ring.textContent = (m.value > 0 ? '+' : '') + m.value;
-    TILES[m.row][m.col].appendChild(ring);
+    const { x, y } = tileToXY(m);
+    const r = 14 + Math.min(16, Math.abs(m.value) * 6);
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('cx', x); circle.setAttribute('cy', y);
+    circle.setAttribute('r', r);
+    circle.setAttribute('fill', m.color === 'red' ? 'rgba(220,60,40,.45)' :
+                          m.color === 'blue' ? 'rgba(50,110,230,.45)' : 'rgba(160,160,160,.4)');
+    circle.setAttribute('stroke', m.color === 'red' ? '#ff6a4a' :
+                          m.color === 'blue' ? '#5a90ff' : '#aaa');
+    circle.setAttribute('stroke-width', '2');
+    ov.appendChild(circle);
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('x', x); label.setAttribute('y', y + 4);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('font-size', '13');
+    label.setAttribute('font-weight', 'bold');
+    label.setAttribute('fill', '#fff');
+    label.textContent = (m.value > 0 ? '+' : '') + m.value;
+    ov.appendChild(label);
   });
-  // 현재 위치
-  TILES[G.pos.row][G.pos.col].classList.add('current');
+
+  // 4. 현재 위치 마커 (깜빡이는 금색 원)
+  const cur = tileToXY(G.pos);
+  const marker = document.createElementNS(ns, 'circle');
+  marker.setAttribute('cx', cur.x); marker.setAttribute('cy', cur.y);
+  marker.setAttribute('r', '12');
+  marker.setAttribute('fill', '#ffd700');
+  marker.setAttribute('stroke', '#fff');
+  marker.setAttribute('stroke-width', '3');
+  marker.innerHTML = '<animate attributeName="r" values="10;16;10" dur="1.6s" repeatCount="indefinite"/>';
+  ov.appendChild(marker);
+
+  // 한국 타일 강조
+  const k = tileToXY(C.KOREA);
+  const koreaRing = document.createElementNS(ns, 'circle');
+  koreaRing.setAttribute('cx', k.x); koreaRing.setAttribute('cy', k.y);
+  koreaRing.setAttribute('r', '16');
+  koreaRing.setAttribute('fill', 'none');
+  koreaRing.setAttribute('stroke', '#ffd700');
+  koreaRing.setAttribute('stroke-width', '2');
+  koreaRing.setAttribute('stroke-dasharray', '6 4');
+  ov.appendChild(koreaRing);
 
   // HUD
   document.getElementById('hudTurn').textContent = G.turn;
   document.getElementById('hudScore').textContent = G.score;
-  document.getElementById('hudPos').textContent = `(${G.pos.row},${G.pos.col})`;
+  document.getElementById('hudPos').textContent =
+    `${Math.abs(C.latOf(G.pos.row))}°${C.latOf(G.pos.row) >= 0 ? 'N' : 'S'}, ` +
+    `${Math.abs(C.lonOf(G.pos.col))}°${C.lonOf(G.pos.col) >= 0 ? 'E' : 'W'}`;
   document.getElementById('hudBadges').innerHTML =
     G.badges.map(b => `<span class="badge">${b}</span>`).join('');
 
@@ -407,7 +385,7 @@ function render() {
     if (e.type === 'fail') return `<div class="log-entry fail"><span class="turn-tag">T${e.turn}</span> ❌ ${e.dir} — ${e.msg}<br><span style="color:#d0a890;">실패 경험: 위 피드백 이유를 학습지에 기록하세요.</span></div>`;
     if (e.type === 'move') {
       const f = e.forecast;
-      return `<div class="log-entry move"><span class="turn-tag">T${e.turn}</span> ➡ ${e.dir} → (${e.to.row},${e.to.col}) [${f.scenario==='elnino'?'엘니뇨':f.scenario==='lanina'?'라니냬':'중립'}]<br>기압 ${fmt(f.pressureAnomaly)} hPa · 기온 ${fmt(f.tempAnomaly)} °C · 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}% (평년 대비)</div>`;
+      return `<div class="log-entry move"><span class="turn-tag">T${e.turn}</span> ➡ ${e.dir} → ${Math.abs(C.latOf(e.to.row))}°${C.latOf(e.to.row)>=0?'N':'S'} ${Math.abs(C.lonOf(e.to.col))}°${C.lonOf(e.to.col)>=0?'E':'W'} [${f.scenario==='elnino'?'엘니뇨':f.scenario==='lanina'?'라니냬':'중립'}]<br>기압 ${fmt(f.pressureAnomaly)} hPa · 기온 ${fmt(f.tempAnomaly)} °C · 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}% (평년 대비)</div>`;
     }
     if (e.type === 'win') return `<div class="log-entry win">🏆 ${e.msg}</div>`;
     return '';
@@ -419,7 +397,6 @@ function fmt(v) { return (v > 0 ? '+' : '') + v; }
 function buildDirGrid() {
   const grid = document.getElementById('dirGrid');
   grid.innerHTML = '';
-  const layout = [null,'N',null,'W',null,'E',null,'S',null];
   C.DIRECTIONS.forEach(d => {
     const b = document.createElement('button');
     b.className = 'dir-btn';
@@ -461,11 +438,8 @@ function submitMove() {
   const res = C.tryMove(G, obs, selectedDir);
   showFeedback(res.evaluation);
 
-  if (res.ok) {
-    const f = res.forecast;
-    if (G.status === 'won') {
-      G.log.push({ type: 'win', msg: '한반도 도달! 남방진동의 영향을 확인했습니다.' });
-    }
+  if (res.ok && G.status === 'won') {
+    G.log.push({ type: 'win', msg: '한반도 도달! 남방진동의 영향을 확인했습니다.' });
   }
   selectedDir = null;
   document.querySelectorAll('.dir-btn').forEach(b => b.classList.remove('active'));
@@ -506,6 +480,7 @@ function startGame(startKey) {
   selectedDir = null;
   document.getElementById('startScreen').classList.add('hidden');
   document.getElementById('gameScreen').classList.remove('hidden');
+  document.getElementById('startPoints').innerHTML = '';
   saveGame(); render();
 }
 function resetGame() {
@@ -515,6 +490,7 @@ function resetGame() {
   document.getElementById('gameScreen').classList.add('hidden');
   document.getElementById('startScreen').classList.remove('hidden');
   document.getElementById('feedback').className = '';
+  buildStartButtons();
 }
 function downloadSave() {
   const blob = new Blob([JSON.stringify(G, null, 2)], { type: 'application/json' });
@@ -528,18 +504,20 @@ function exportWorksheet() {
   const scen = G.observations.length ? G.observations[G.observations.length - 1].scenario : 'neutral';
   const scenLabel = scen === 'elnino' ? '엘니뇨' : scen === 'lanina' ? '라니냬' : '중립';
   let md = `# 기후 문명 학습지 — 남방진동이 한반도에 미치는 영향\n\n`;
-  md += `- 시작 지점: ${G.startKey === 'A' ? 'A: 동태평양 (칠레 연안)' : 'B: 서태평양 (오스트레일리아)'}\n`;
+  md += `- 시작 지점: ${G.startKey === 'A' ? 'A: 동태평양 (칠레 연안)' : 'B: 서태평양 (오스트레일리아 북동쪽)'}\n`;
   md += `- 최종 식별된 시나리오: ${scenLabel}\n- 턴 수: ${G.turn} / 점수: ${G.score}\n`;
   md += `- 배지: ${G.badges.length ? G.badges.join(', ') : '없음'}\n\n`;
   md += `## 나의 가설\n${G.hypotheses || '(기록 없음)'}\n\n`;
-  md += `## 화살표 경로\n${G.path.map((p,i) => `${i===0?'시작':i}: (${p.row},${p.col})`).join(' → ')}\n\n`;
+  md += `## 화살표 경로 (경·위도)\n${G.path.map((p, i) =>
+    `${i === 0 ? '시작' : i}: ${Math.abs(C.latOf(p.row))}°${C.latOf(p.row) >= 0 ? 'N' : 'S'}, ${Math.abs(C.lonOf(p.col))}°${C.lonOf(p.col) >= 0 ? 'E' : 'W'}`
+  ).join(' → ')}\n\n`;
   md += `## 실패 경험 기록\n`;
   if (G.failures.length === 0) md += `(실패 없음)\n`;
   else G.failures.forEach(f => { md += `- [턴 ${f.turn}] 방향 ${f.dir} — ${f.reason}\n  - ${f.lesson}\n`; });
   md += `\n## 예측·기후 변화 관측 기록\n`;
   G.log.filter(e => e.type === 'move').forEach(e => {
     const f = e.forecast;
-    md += `- T${e.turn} ${e.dir} → (${e.to.row},${e.to.col}): 기압 ${fmt(f.pressureAnomaly)} hPa, 기온 ${fmt(f.tempAnomaly)} °C, 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}%\n`;
+    md += `- T${e.turn} ${e.dir} → ${Math.abs(C.latOf(e.to.row))}°${C.latOf(e.to.row)>=0?'N':'S'} ${Math.abs(C.lonOf(e.to.col))}°${C.lonOf(e.to.col)>=0?'E':'W'}: 기압 ${fmt(f.pressureAnomaly)} hPa, 기온 ${fmt(f.tempAnomaly)} °C, 강수량 ${f.precipAnomaly>0?'+':''}${f.precipAnomaly}%\n`;
   });
   if (G.finalImpact) {
     const i2 = G.finalImpact;
@@ -553,7 +531,6 @@ function exportWorksheet() {
 }
 
 // 초기화
-buildMap();
 buildDirGrid();
 const saved = loadGame();
 if (saved) {
@@ -562,6 +539,8 @@ if (saved) {
   document.getElementById('gameScreen').classList.remove('hidden');
   document.getElementById('inpHypothesis').value = saved.hypotheses || '';
   render();
+} else {
+  buildStartButtons();
 }
 </script>
 </body>

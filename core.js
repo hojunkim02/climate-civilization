@@ -5,12 +5,19 @@
   const GRID_ROWS = 6;
 
   // 타일 좌표: (row, col). row 0 = 북쪽.
-  // 한국 타일 = (1, 7)
-  const KOREA = { row: 1, col: 7 };
+  // 실제 지도 매핑: 각 타일은 아래 LON_BY_COL / LAT_BY_ROW 의 경·위도에 대응한다.
+  // 한국 타일 = (1, 8) → 약 39°N, 127°E
+  const KOREA = { row: 1, col: 8 };
   const START_POINTS = {
-    A: { row: 4, col: 1, name: '동태평양 (칠레 연안)', latitudeBand: '남반구 열대' },
-    B: { row: 3, col: 3, name: '서태평양 (오스트레일리아 북동쪽)', latitudeBand: '남반구 열대' },
+    A: { row: 4, col: 1, name: '동태평양 (칠레 연안)', latitudeBand: '남반구' },
+    B: { row: 3, col: 5, name: '서태평양 (오스트레일리아 북동쪽)', latitudeBand: '남반구 열대' },
   };
+
+  // 타일 → 실제 경도(°E), 위도(°N) 매핑 (등장방형 투법 지도 기준)
+  const LON_BY_COL = [-150, -75, -10, 60, 110, 140, 132, 128, 127, 126];
+  const LAT_BY_ROW = [65, 39, 13, -13, -39, -65];
+  function lonOf(col) { return LON_BY_COL[Math.max(0, Math.min(GRID_COLS - 1, col))]; }
+  function latOf(row) { return LAT_BY_ROW[Math.max(0, Math.min(GRID_ROWS - 1, row))]; }
 
   // 한 턴에 이동 가능한 최대 거리 (인접 8방향, 1타일)
   const MAX_STEP = 1;
@@ -80,12 +87,14 @@
     if (row === KOREA.row && col === KOREA.col) return 'korea';
     if (row === START_POINTS.A.row && col === START_POINTS.A.col) return 'startA';
     if (row === START_POINTS.B.row && col === START_POINTS.B.col) return 'startB';
-    // 육지 근사
-    if (row === 0 && (col === 0 || col === 9)) return 'land';    // 북미/북아시아
-    if (row === 1 && col === 0) return 'mountain';               // 로키/안데스
-    if (row === 4 && col === 5) return 'land';                    // 호주
-    if (row === 3 && col === 5) return 'land';                    // 인도네시아
-    if (row === 1 && col === 9) return 'land';                    // 동북아시아
+    // 육지 근사 (실제 지도 위 대응 지점 기준)
+    if (row === 0 && col === 1) return 'land';        // 북미 (캐나다)
+    if (row === 1 && col === 1) return 'mountain';    // 아팔래치아/안데스 산계
+    if (row === 5 && col === 1) return 'land';        // 남아메리카 남부 (파타고니아)
+    if (row === 3 && col === 4) return 'land';        // 인도네시아
+    if (row === 4 && col === 5) return 'land';        // 호주
+    if (row === 0 && col === 8) return 'land';        // 시베리아
+    if (row === 1 && col === 9) return 'land';        // 동아시아 (중국)
     return 'ocean';
   }
 
@@ -294,6 +303,10 @@
     GRID_ROWS: GRID_ROWS,
     KOREA: KOREA,
     START_POINTS: START_POINTS,
+    LON_BY_COL: LON_BY_COL,
+    LAT_BY_ROW: LAT_BY_ROW,
+    lonOf: lonOf,
+    latOf: latOf,
     DIRECTIONS: DIRECTIONS,
     TILE_TYPES: TILE_TYPES,
     CLIMATE_PRESETS: CLIMATE_PRESETS,
